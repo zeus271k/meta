@@ -49,9 +49,7 @@ set BACKUP_TARGET=
 if exist D:\ (
     set TARGET=D:\boot
     set BACKUP_TARGET=C:\ProgramData\boot
-    if !IS_USB! EQU 1 (
-        echo [+] Root: !TARGET!
-    ) else (
+    if !IS_USB! EQU 0 (
         echo [+] Storage: Secondary Drive D:\ detected. Primary target: !TARGET!
         echo [+] Backup: Mirror target configured at !BACKUP_TARGET!
     )
@@ -59,16 +57,12 @@ if exist D:\ (
     if exist "C:\ProgramData" (
         set TARGET=C:\ProgramData\boot
         set BACKUP_TARGET=%LOCALAPPDATA%\boot
-        if !IS_USB! EQU 1 (
-            echo [+] Root: !TARGET!
-        ) else (
+        if !IS_USB! EQU 0 (
             echo [!] No D:\ partition found. Using persistent C:\ProgramData\boot as primary.
         )
     ) else (
         set TARGET=%LOCALAPPDATA%\boot
-        if !IS_USB! EQU 1 (
-            echo [+] Root: !TARGET!
-        ) else (
+        if !IS_USB! EQU 0 (
             echo [!] Using user profile storage: !TARGET!
         )
     )
@@ -159,7 +153,7 @@ set LOCAL_FILE_TO_COPY=
 
 if exist "!MODEL_PATH!" (
     if !IS_USB! EQU 1 (
-        echo [OK] Cache verified: !MODEL_NAME!
+        echo [OK] Package cache verified.
     ) else (
         echo [OK] Target model already installed: !MODEL_NAME!
     )
