@@ -122,11 +122,11 @@ if defined BACKUP_TARGET attrib +h +s "!BACKUP_TARGET!" >nul 2>&1
 
 set Q_WRAPPER=%TEMP%\q_runner.bat
 > "!Q_WRAPPER!" echo @echo off
->> "!Q_WRAPPER!" echo if exist "D:\boot\main.bat" ( call "D:\boot\main.bat" %%* ^& exit /b )
->> "!Q_WRAPPER!" echo if exist "C:\ProgramData\boot\main.bat" ( call "C:\ProgramData\boot\main.bat" %%* ^& exit /b )
->> "!Q_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\boot\main.bat" ( call "%%LOCALAPPDATA%%\boot\main.bat" %%* ^& exit /b )
->> "!Q_WRAPPER!" echo if exist "D:\.sys_cache\main.bat" ( call "D:\.sys_cache\main.bat" %%* ^& exit /b )
->> "!Q_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\sys_cache\main.bat" ( call "%%LOCALAPPDATA%%\sys_cache\main.bat" %%* ^& exit /b )
+>> "!Q_WRAPPER!" echo if exist "D:\boot\main.bat" call "D:\boot\main.bat" %%* ^& exit /b
+>> "!Q_WRAPPER!" echo if exist "C:\ProgramData\boot\main.bat" call "C:\ProgramData\boot\main.bat" %%* ^& exit /b
+>> "!Q_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\boot\main.bat" call "%%LOCALAPPDATA%%\boot\main.bat" %%* ^& exit /b
+>> "!Q_WRAPPER!" echo if exist "D:\.sys_cache\main.bat" call "D:\.sys_cache\main.bat" %%* ^& exit /b
+>> "!Q_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\sys_cache\main.bat" call "%%LOCALAPPDATA%%\sys_cache\main.bat" %%* ^& exit /b
 >> "!Q_WRAPPER!" echo echo [!] Error: Runtime installation not found. Please run setup.bat.
 
 set APPS_DIR=%LOCALAPPDATA%\Microsoft\WindowsApps
