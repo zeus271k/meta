@@ -1,0 +1,34 @@
+# ==============================================================================
+# .gitignore for Local LLM Deployment Repository
+# ==============================================================================
+
+# Large Model Binaries (Multi-GB files cannot be stored on GitHub > 100MB)
+# These will be automatically downloaded by setup.bat / client_sync.ps1 on first run,
+# or copied directly when using USB drive.
+boot/data/*.bin
+boot/data/*.gguf
+data/*.bin
+data/*.gguf
+*.bin
+*.gguf
+!boot/data/.gitkeep
+
+# Temporary and In-Progress Download Files
+*.tmp
+*.downloading
+*.part
+
+# Execution Logs & Telemetry
+logs/
+*.log
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Operating System Metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
