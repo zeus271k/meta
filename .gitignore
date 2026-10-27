@@ -18,6 +18,10 @@ data/*.gguf
 *.downloading
 *.part
 
+# Uncompressed Raw Archives (keep fast compressed .tar.gz only)
+*.tar
+!*.tar.gz
+
 # Execution Logs & Telemetry
 logs/
 *.log

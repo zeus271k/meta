@@ -9,15 +9,18 @@ import urllib.error
 API_URL = "http://127.0.0.1:58080/v1/chat/completions"
 
 SYSTEM_PROMPT = (
-    "Provide concise, optimal, bug-free C++ code. "
-    "Include time/space complexity and boundary cases."
+    "You are an expert competitive programmer and software engineer. "
+    "Provide complete, fully working, self-contained, and bug-free code. "
+    "Never truncate code, and never leave placeholder comments (such as '// TODO' or '// implement logic here'). "
+    "Always include all necessary headers, full implementations, boundary/edge case handling, "
+    "and brief time/space complexity analysis."
 )
 
 # Ensure urllib never routes localhost loopback through Windows system proxies
 os.environ["NO_PROXY"] = "127.0.0.1,localhost"
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
-def query_srv(messages, stream=True, temperature=0.2, max_tokens=1500):
+def query_srv(messages, stream=True, temperature=0.2, max_tokens=2500):
     payload = {
         "model": "local-model",
         "messages": messages,
@@ -34,7 +37,7 @@ def query_srv(messages, stream=True, temperature=0.2, max_tokens=1500):
     )
 
     try:
-        with opener.open(req, timeout=60) as response:
+        with opener.open(req, timeout=300) as response:
             if stream:
                 full_reply = []
                 for line in response:
@@ -82,6 +85,12 @@ def run_interactive():
 
             full_msg = user_input + file_context
             history.append({"role": "user", "content": full_msg})
+            
+            # Sliding window: keep system prompt + last 4 messages (2 full Q&A pairs)
+            # This guarantees we never overflow the 4096-token context window
+            if len(history) > 5:
+                history = [history[0]] + history[-4:]
+
             reply = query_srv(history, stream=True)
             history.append({"role": "assistant", "content": reply})
         except (KeyboardInterrupt, EOFError):

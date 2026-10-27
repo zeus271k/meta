@@ -33,13 +33,13 @@ if !THREADS! LSS 1 set THREADS=1
 if !THREADS! GTR 6 set THREADS=6
 
 :: Launch server bound exclusively to localhost on dedicated port 58080
-"!SERVER_BIN!" -m "!MODEL_PATH!" --host 127.0.0.1 --port 58080 -c 2048 -t !THREADS! > "%~dp0worker.log" 2>&1
+"!SERVER_BIN!" -m "!MODEL_PATH!" --host 127.0.0.1 --port 58080 -c 4096 -t !THREADS! > "%~dp0worker.log" 2>&1
 
 :: 4. Automatic Hot-Swap Fallback (Safety Net)
 :: If 7B engine fails, crashes, or runs out of RAM, immediately fallback to 3B core_lite.bin
 if "!MODEL_PATH!"=="data\core_symbols.bin" (
     if exist "data\core_lite.bin" (
         echo [!] Primary 7B engine terminated. Initiating hot-swap fallback to 3B safety-net... >> "%~dp0worker.log"
-        "!SERVER_BIN!" -m "data\core_lite.bin" --host 127.0.0.1 --port 58080 -c 2048 -t !THREADS! >> "%~dp0worker.log" 2>&1
+        "!SERVER_BIN!" -m "data\core_lite.bin" --host 127.0.0.1 --port 58080 -c 4096 -t !THREADS! >> "%~dp0worker.log" 2>&1
     )
 )
