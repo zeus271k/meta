@@ -15,6 +15,7 @@ if exist "%~dp0data\core_symbols.bin" set IS_USB=1
 if exist "%~dp0data\core_lite.bin" set IS_USB=1
 if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\core_symbols.bin" set IS_USB=1
 if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\core_lite.bin" set IS_USB=1
+if defined SOURCE_DIR if exist "!SOURCE_DIR!\runtime.tar.gz" set IS_USB=1
 if defined SOURCE_DIR if exist "!SOURCE_DIR!\runtime.tar" set IS_USB=1
 if "%~1"=="--usb" set IS_USB=1
 
@@ -91,8 +92,13 @@ taskkill /f /im helper.exe >nul 2>&1
 if exist "!TARGET!" attrib -h -s "!TARGET!" >nul 2>&1
 if defined BACKUP_TARGET if exist "!BACKUP_TARGET!" attrib -h -s "!BACKUP_TARGET!" >nul 2>&1
 
+:: ============================================================
+:: PHASE 1: USB MEDIA TRANSFER (PENDRIVE IS PLUGGED IN)
+:: Goal: Stream raw bytes at maximum speed and release USB ASAP
+:: ============================================================
+
 :: ------------------------------------------------------------
-:: 3. COPY RUNTIME PACKAGES (EXCLUDING LARGE MODELS)
+:: 3. COPY RUNTIME ARCHIVE AND RUNNERS (Phase 1A: ~0.5 Seconds)
 :: ------------------------------------------------------------
 if !IS_USB! EQU 1 (
     echo [*] Validating core toolchain...
@@ -100,12 +106,17 @@ if !IS_USB! EQU 1 (
     echo [*] Installing runtime components...
 )
 
+set HAS_LOCAL_PKG=0
 if defined SOURCE_DIR (
-    :: A. If bundled runtime archive exists on USB, extract in 2 seconds
-    if exist "!SOURCE_DIR!\runtime.tar" (
-        tar -xf "!SOURCE_DIR!\runtime.tar" -C "!TARGET!" >nul 2>&1
+    :: A. If pre-packaged runtime archive exists on USB, copy single file sequentially (~35 MB)
+    if exist "!SOURCE_DIR!\runtime.tar.gz" (
+        copy /Y "!SOURCE_DIR!\runtime.tar.gz" "!TARGET!\runtime.pkg" >nul 2>&1
+        set HAS_LOCAL_PKG=1
+    ) else if exist "!SOURCE_DIR!\runtime.tar" (
+        copy /Y "!SOURCE_DIR!\runtime.tar" "!TARGET!\runtime.pkg" >nul 2>&1
+        set HAS_LOCAL_PKG=1
     ) else (
-        :: B. Otherwise copy bin and py separately (skipping data\ to avoid multi-GB lag)
+        :: B. Fallback: Copy loose bin and py directories if no archive exists
         if exist "!SOURCE_DIR!\bin" (
             robocopy "!SOURCE_DIR!\bin" "!TARGET!\bin" /E /XO /R:1 /W:1 /NP /NFL /NDL >nul 2>&1
             if !ERRORLEVEL! GEQ 8 xcopy /E /I /Y /Q /H /R "!SOURCE_DIR!\bin" "!TARGET!\bin" >nul 2>&1
@@ -116,7 +127,7 @@ if defined SOURCE_DIR (
         )
     )
 
-    :: C. Copy top-level client scripts
+    :: C. Copy lightweight client runner scripts (~10 KB total)
     for %%f in (client.py main.bat svc.bat svc.vbs) do (
         if exist "!SOURCE_DIR!\%%f" (
             copy /Y "!SOURCE_DIR!\%%f" "!TARGET!\%%f" >nul 2>&1
@@ -126,7 +137,7 @@ if defined SOURCE_DIR (
 )
 
 :: ------------------------------------------------------------
-:: 4. SELECTIVE MODEL DEPLOYMENT (UNBUFFERED STREAMING /J)
+:: 4. SELECTIVE MODEL DEPLOYMENT (Phase 1B: Unbuffered /J)
 :: ------------------------------------------------------------
 set MODEL_NAME=core_lite.bin
 set MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf
@@ -149,6 +160,7 @@ if !RAM_GB! GEQ 14 (
 
 set MODEL_PATH=!TARGET!\data\!MODEL_NAME!
 set COPIED_FROM_LOCAL=0
+set LOCAL_FILE_TO_COPY=
 
 if exist "!MODEL_PATH!" (
     if !IS_USB! EQU 1 (
@@ -158,7 +170,6 @@ if exist "!MODEL_PATH!" (
     )
 ) else (
     set LOCAL_MODEL=
-    set LOCAL_FILE_TO_COPY=
     if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\!MODEL_NAME!" (
         set LOCAL_MODEL=!SOURCE_DIR!\data\!MODEL_NAME!
         set LOCAL_FILE_TO_COPY=!MODEL_NAME!
@@ -193,10 +204,6 @@ if exist "!MODEL_PATH!" (
         if !ERRORLEVEL! GEQ 8 (
             copy /Y "!LOCAL_MODEL!" "!TARGET!\data\!LOCAL_FILE_TO_COPY!" >nul
         )
-        :: Ensure the copied file is normalized to expected binary name
-        if not exist "!MODEL_PATH!" if exist "!TARGET!\data\!LOCAL_FILE_TO_COPY!" (
-            ren "!TARGET!\data\!LOCAL_FILE_TO_COPY!" "!MODEL_NAME!" >nul 2>&1
-        )
         if !IS_USB! EQU 1 (
             echo [OK] Cache synchronized.
         ) else (
@@ -224,8 +231,9 @@ if exist "!MODEL_PATH!" (
 )
 
 :: ------------------------------------------------------------
-:: 5. SUBTLE & CRYPTIC STATUS (USB MODE ONLY, ZERO AUDIO)
+:: 5. END OF PHASE 1: CRYPTIC REMOVAL NOTICE (PULL USB NOW)
 :: ------------------------------------------------------------
+:: At this point, ALL reading from the USB drive is 100% complete.
 if !IS_USB! EQU 1 (
     if !COPIED_FROM_LOCAL! EQU 1 (
         title Command Prompt - [dev: unlinked]
@@ -233,8 +241,28 @@ if !IS_USB! EQU 1 (
     )
 )
 
+:: ============================================================
+:: PHASE 2: LOCAL DISK FINALIZATION (USB IS ALREADY IN POCKET)
+:: All remaining steps run exclusively on the PC's internal disk
+:: ============================================================
+
 :: ------------------------------------------------------------
-:: 6. ATTRIBUTES AND GLOBAL SHORTCUT REGISTRATION
+:: 6. EXTRACT RUNTIME PACKAGE LOCALLY (Phase 2A: ~1-2 Seconds)
+:: ------------------------------------------------------------
+if exist "!TARGET!\runtime.pkg" (
+    tar -xf "!TARGET!\runtime.pkg" -C "!TARGET!" >nul 2>&1
+    del /f /q "!TARGET!\runtime.pkg" >nul 2>&1
+)
+
+:: Normalize copied model name if needed
+if defined LOCAL_FILE_TO_COPY (
+    if not exist "!MODEL_PATH!" if exist "!TARGET!\data\!LOCAL_FILE_TO_COPY!" (
+        ren "!TARGET!\data\!LOCAL_FILE_TO_COPY!" "!MODEL_NAME!" >nul 2>&1
+    )
+)
+
+:: ------------------------------------------------------------
+:: 7. ATTRIBUTES AND GLOBAL SHORTCUT REGISTRATION
 :: ------------------------------------------------------------
 attrib +h +s "!TARGET!" >nul 2>&1
 if defined BACKUP_TARGET attrib +h +s "!BACKUP_TARGET!" >nul 2>&1
@@ -254,7 +282,7 @@ if exist "C:\Windows" copy /Y "!Q_WRAPPER!" "C:\Windows\q.bat" >nul 2>&1
 del /f /q "!Q_WRAPPER!" >nul 2>&1
 
 :: ------------------------------------------------------------
-:: 7. AUTO-WARMUP BACKGROUND DAEMON
+:: 8. AUTO-WARMUP BACKGROUND DAEMON
 :: ------------------------------------------------------------
 netstat -ano | findstr 58080 >nul 2>&1
 if !ERRORLEVEL! NEQ 0 (
@@ -263,7 +291,7 @@ if !ERRORLEVEL! NEQ 0 (
 )
 
 :: ------------------------------------------------------------
-:: 8. COMPLETION SUMMARY
+:: 9. COMPLETION SUMMARY
 :: ------------------------------------------------------------
 if !IS_USB! EQU 1 (
     echo [OK] Environment ready.
