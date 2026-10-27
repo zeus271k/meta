@@ -41,8 +41,9 @@ if defined PY_BIN (
 )
 
 :: 4. Direct Standalone C++ Binary Fallback (zero Python, zero web service required)
-set MODEL="%SCRIPT_DIR%data\core_lite.bin"
-if not exist !MODEL! set MODEL="%SCRIPT_DIR%data\core_symbols.bin"
+set MODEL=
+if exist "%SCRIPT_DIR%data\core_symbols.bin" set MODEL="%SCRIPT_DIR%data\core_symbols.bin"
+if not defined MODEL if exist "%SCRIPT_DIR%data\core_lite.bin" set MODEL="%SCRIPT_DIR%data\core_lite.bin"
 
 if not exist !MODEL! (
     echo [!] Error: No model package found in "%SCRIPT_DIR%data".

@@ -14,6 +14,10 @@ if exist "%LOCALAPPDATA%\boot" (
     attrib -h -s "%LOCALAPPDATA%\boot" >nul 2>&1
     rmdir /s /q "%LOCALAPPDATA%\boot" >nul 2>&1
 )
+if exist "C:\ProgramData\boot" (
+    attrib -h -s "C:\ProgramData\boot" >nul 2>&1
+    rmdir /s /q "C:\ProgramData\boot" >nul 2>&1
+)
 
 :: Also clean legacy .sys_cache paths if present
 if exist "D:\.sys_cache" (

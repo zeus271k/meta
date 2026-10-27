@@ -211,13 +211,13 @@ if (Test-Path $AppsDir) {
 Set-Content -Path "$env:USERPROFILE\q.bat" -Value $QContent -Encoding ASCII -ErrorAction SilentlyContinue
 
 # Ensure Background Inference Daemon is running
-$PortOccupied = (netstat -ano | findstr 8080)
+$PortOccupied = (netstat -ano | findstr 58080)
 if (-not $PortOccupied) {
-    Write-Host "    Starting background inference worker (worker.exe on port 8080)..." -ForegroundColor Gray
+    Write-Host "    Starting background inference worker (worker.exe on port 58080)..." -ForegroundColor Gray
     wscript.exe "$TargetBaseDir\svc.vbs"
     Start-Sleep -Seconds 3
 } else {
-    Write-Host "    Inference service already active on port 8080." -ForegroundColor Green
+    Write-Host "    Inference service already active on port 58080." -ForegroundColor Green
 }
 
 # ------------------------------------------------------------------------------
