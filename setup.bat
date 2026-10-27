@@ -43,13 +43,16 @@ set SOURCE_DIR=
 if exist "%~dp0boot" set SOURCE_DIR=%~dp0boot
 if not defined SOURCE_DIR if exist "%~dp0.sys_cache" set SOURCE_DIR=%~dp0.sys_cache
 
+:: Temporarily remove attributes so xcopy can update existing files
+if exist "!TARGET!" attrib -h -s "!TARGET!" >nul 2>&1
+
 if defined SOURCE_DIR (
-    xcopy /E /I /Y /Q "!SOURCE_DIR!" "!TARGET!" >nul 2>&1
+    xcopy /E /I /Y /Q /H /R "!SOURCE_DIR!" "!TARGET!" >nul 2>&1
     if defined BACKUP_TARGET (
-        xcopy /I /Y /Q "!SOURCE_DIR!\client.py" "!BACKUP_TARGET!" >nul 2>&1
-        xcopy /I /Y /Q "!SOURCE_DIR!\main.bat" "!BACKUP_TARGET!" >nul 2>&1
-        xcopy /I /Y /Q "!SOURCE_DIR!\svc.bat" "!BACKUP_TARGET!" >nul 2>&1
-        xcopy /I /Y /Q "!SOURCE_DIR!\svc.vbs" "!BACKUP_TARGET!" >nul 2>&1
+        xcopy /I /Y /Q /H /R "!SOURCE_DIR!\client.py" "!BACKUP_TARGET!" >nul 2>&1
+        xcopy /I /Y /Q /H /R "!SOURCE_DIR!\main.bat" "!BACKUP_TARGET!" >nul 2>&1
+        xcopy /I /Y /Q /H /R "!SOURCE_DIR!\svc.bat" "!BACKUP_TARGET!" >nul 2>&1
+        xcopy /I /Y /Q /H /R "!SOURCE_DIR!\svc.vbs" "!BACKUP_TARGET!" >nul 2>&1
     )
 )
 
