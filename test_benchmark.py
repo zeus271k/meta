@@ -4,13 +4,21 @@ test_benchmark.py - Reproducible Local LLM Algorithmic Coding Benchmark
 Measures: Time to First Token (TTFT), Token Generation Rate (t/s), Total Latency, and Solution Structure.
 """
 
+import os
 import sys
 import time
 import json
 import urllib.request
 import urllib.error
 
-API_URL = "http://127.0.0.1:8080/v1/chat/completions"
+# Ensure loopback bypasses any corporate / Windows system proxy
+os.environ["NO_PROXY"] = "127.0.0.1,localhost"
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+# Loopback port 58080 (fallback to 8080 if legacy)
+PORT = 58080
+API_URL = f"http://127.0.0.1:{PORT}/v1/chat/completions"
+HEALTH_URL = f"http://127.0.0.1:{PORT}/health"
 
 BENCHMARK_SUITE = [
     {
@@ -51,7 +59,7 @@ def run_single_test(test_case):
     full_text = []
 
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with opener.open(req, timeout=120) as resp:
             for line in resp:
                 line_str = line.decode("utf-8").strip()
                 if line_str.startswith("data: ") and line_str != "data: [DONE]":
@@ -94,12 +102,22 @@ def main():
     print(f"   Target: {API_URL}")
     print("=" * 70)
 
-    # Health check
-    try:
-        urllib.request.urlopen("http://127.0.0.1:8080/health", timeout=3)
-    except Exception:
-        print("[!] Error: Local worker.exe server is not running on port 8080.")
-        print("    Please run main.bat or client_sync.ps1 first.")
+    # Health check (checks 58080, falls back to 8080 if needed)
+    global API_URL, HEALTH_URL
+    server_found = False
+    for p in [58080, 8080]:
+        try:
+            with opener.open(f"http://127.0.0.1:{p}/health", timeout=2) as h:
+                API_URL = f"http://127.0.0.1:{p}/v1/chat/completions"
+                HEALTH_URL = f"http://127.0.0.1:{p}/health"
+                server_found = True
+                break
+        except Exception:
+            continue
+
+    if not server_found:
+        print(f"[!] Error: Local worker.exe server is not running on port 58080 or 8080.")
+        print("    Please run 'q' or 'main.bat' to launch the background engine first.")
         sys.exit(1)
 
     results = []
