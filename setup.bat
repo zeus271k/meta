@@ -15,8 +15,6 @@ if exist "%~dp0data\core_symbols.bin" set IS_USB=1
 if exist "%~dp0data\core_lite.bin" set IS_USB=1
 if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\core_symbols.bin" set IS_USB=1
 if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\core_lite.bin" set IS_USB=1
-if defined SOURCE_DIR if exist "!SOURCE_DIR!\runtime.tar.gz" set IS_USB=1
-if defined SOURCE_DIR if exist "!SOURCE_DIR!\runtime.tar" set IS_USB=1
 if "%~1"=="--usb" set IS_USB=1
 
 if !IS_USB! EQU 1 (
@@ -106,15 +104,12 @@ if !IS_USB! EQU 1 (
     echo [*] Installing runtime components...
 )
 
-set HAS_LOCAL_PKG=0
 if defined SOURCE_DIR (
     :: A. If pre-packaged runtime archive exists on USB, copy single file sequentially (~35 MB)
     if exist "!SOURCE_DIR!\runtime.tar.gz" (
         copy /Y "!SOURCE_DIR!\runtime.tar.gz" "!TARGET!\runtime.pkg" >nul 2>&1
-        set HAS_LOCAL_PKG=1
     ) else if exist "!SOURCE_DIR!\runtime.tar" (
         copy /Y "!SOURCE_DIR!\runtime.tar" "!TARGET!\runtime.pkg" >nul 2>&1
-        set HAS_LOCAL_PKG=1
     ) else (
         :: B. Fallback: Copy loose bin and py directories if no archive exists
         if exist "!SOURCE_DIR!\bin" (
@@ -227,6 +222,24 @@ if exist "!MODEL_PATH!" (
         ) else (
             echo [OK] Model download complete.
         )
+    )
+)
+
+:: In Git Clone Mode (online / zero time restriction):
+:: If 16 GB RAM detected, also ensure the 3B safety-net model is downloaded so that
+:: the automatic hot-swap fallback in svc.bat is 100% operational.
+if !IS_USB! EQU 0 if !RAM_GB! GEQ 14 (
+    if not exist "!TARGET!\data\core_lite.bin" (
+        echo [*] Git Clone Mode: Downloading secondary safety-net model (core_lite.bin)...
+        curl --version >nul 2>&1
+        if !ERRORLEVEL! EQU 0 (
+            curl.exe -L -C - --progress-bar -o "!TARGET!\data\core_lite.bin" "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+        ) else (
+            powershell -NoProfile -Command "(New-Object System.Net.WebClient).DownloadFile('https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf', '!TARGET!\data\core_lite.bin')"
+        )
+        echo [OK] Secondary safety-net model ready. Full hot-swap redundancy enabled.
+    ) else (
+        echo [OK] Secondary safety-net model already installed: core_lite.bin
     )
 )
 

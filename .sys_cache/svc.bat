@@ -10,7 +10,7 @@ for /f %%a in ('powershell -NoProfile -Command "[Math]::Round((Get-CimInstance W
 )
 
 :: 2. Tier Selection: 7B Model for >= 14GB RAM, 3B Model for 8GB RAM
-if %RAM_GB% GEQ 14 (
+if !RAM_GB! GEQ 14 (
     set MODEL_PATH=data\core_symbols.bin
 ) else (
     set MODEL_PATH=data\core_lite.bin

@@ -45,9 +45,15 @@ set MODEL=
 if exist "%SCRIPT_DIR%data\core_symbols.bin" set MODEL="%SCRIPT_DIR%data\core_symbols.bin"
 if not defined MODEL if exist "%SCRIPT_DIR%data\core_lite.bin" set MODEL="%SCRIPT_DIR%data\core_lite.bin"
 
-if not exist !MODEL! (
+if not defined MODEL (
     echo [!] Error: No model package found in "%SCRIPT_DIR%data".
     echo     Please run setup.bat to download or copy models.
+    exit /b 1
+)
+
+if not exist !MODEL! (
+    echo [!] Error: Model file is missing or corrupted.
+    echo     Please run setup.bat to re-install.
     exit /b 1
 )
 
