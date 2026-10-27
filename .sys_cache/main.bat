@@ -57,7 +57,7 @@ if not exist "%SCRIPT_DIR%bin\helper.exe" (
 )
 
 if "%~1"=="" (
-    "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 --conversation
+    "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 -cnv
 ) else if exist "%~1" (
     "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 -f "%~1" -p "%~2"
 ) else (

@@ -24,8 +24,10 @@ logs/
 
 # Python Cache & Bytecode
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
 *$py.class
+!*.pyd
 
 # Operating System Metadata
 .DS_Store
