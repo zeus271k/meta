@@ -69,56 +69,63 @@ for /f %%a in ('powershell -NoProfile -Command "[Math]::Round((Get-CimInstance W
 )
 echo [+] Detected Total Usable RAM: !RAM_GB! GB
 
+:: ------------------------------------------------------------
+:: 4. MODEL PACKAGE HANDLING (DUAL SAFETY-NET ON 16GB)
+:: ------------------------------------------------------------
+
+:: 4A. Always Ensure Base 3B Model is Present (core_lite.bin ~2.10 GB)
+set M3B_NAME=core_lite.bin
+set M3B_PATH=!TARGET!\data\!M3B_NAME!
+set M3B_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf
+
+if exist "!M3B_PATH!" (
+    echo [OK] 3B Safety-Net Model already present: !M3B_NAME!
+) else (
+    set LOCAL_3B=
+    if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\!M3B_NAME!" set LOCAL_3B=!SOURCE_DIR!\data\!M3B_NAME!
+    if defined LOCAL_3B (
+        echo [*] Copying 3B model from local media...
+        copy /Y "!LOCAL_3B!" "!M3B_PATH!" >nul
+        echo [OK] Local 3B model installed.
+    ) else (
+        echo [*] Downloading 3B Model (!M3B_NAME!, ~2.10 GB)...
+        curl --version >nul 2>&1
+        if !ERRORLEVEL! EQU 0 (
+            curl.exe -L -C - --progress-bar -o "!M3B_PATH!" "!M3B_URL!"
+        ) else (
+            powershell -NoProfile -Command "(New-Object System.Net.WebClient).DownloadFile('!M3B_URL!', '!M3B_PATH!')"
+        )
+    )
+)
+
+:: 4B. On 16 GB PCs (RAM >= 14 GB), Also Download Primary 7B Model (core_symbols.bin ~4.68 GB)
 if !RAM_GB! GEQ 14 (
-    set MODEL_NAME=core_symbols.bin
-    set MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf
-    echo [+] RAM is !RAM_GB! GB: Selected 7B Model core_symbols.bin
+    set M7B_NAME=core_symbols.bin
+    set M7B_PATH=!TARGET!\data\!M7B_NAME!
+    set M7B_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf
+
+    if exist "!M7B_PATH!" (
+        echo [OK] Primary 7B Model already present: !M7B_NAME!
+    ) else (
+        set LOCAL_7B=
+        if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\!M7B_NAME!" set LOCAL_7B=!SOURCE_DIR!\data\!M7B_NAME!
+        if defined LOCAL_7B (
+            echo [*] Copying 7B model from local media...
+            copy /Y "!LOCAL_7B!" "!M7B_PATH!" >nul
+            echo [OK] Local 7B model installed.
+        ) else (
+            echo [*] RAM is !RAM_GB! GB: Downloading Primary 7B Model (!M7B_NAME!, ~4.68 GB)...
+            curl --version >nul 2>&1
+            if !ERRORLEVEL! EQU 0 (
+                curl.exe -L -C - --progress-bar -o "!M7B_PATH!" "!M7B_URL!"
+            ) else (
+                powershell -NoProfile -Command "(New-Object System.Net.WebClient).DownloadFile('!M7B_URL!', '!M7B_PATH!')"
+            )
+        )
+    )
 ) else (
-    set MODEL_NAME=core_lite.bin
-    set MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf
-    echo [!] Low RAM: !RAM_GB! GB is under 14 GB. Selected lightweight 3B Model core_lite.bin
+    echo [!] Low RAM (!RAM_GB! GB): Skipped 7B model to conserve memory. Running on 3B core_lite.bin.
 )
-
-:: ------------------------------------------------------------
-:: 4. MODEL PACKAGE HANDLING
-:: ------------------------------------------------------------
-set MODEL_PATH=!TARGET!\data\!MODEL_NAME!
-set SRC_MODEL=
-if defined SOURCE_DIR (
-    if exist "!SOURCE_DIR!\data\!MODEL_NAME!" set SRC_MODEL=!SOURCE_DIR!\data\!MODEL_NAME!
-    if not defined SRC_MODEL if exist "!SOURCE_DIR!\data\core_symbols.bin" set SRC_MODEL=!SOURCE_DIR!\data\core_symbols.bin
-    if not defined SRC_MODEL if exist "!SOURCE_DIR!\data\core_lite.bin" set SRC_MODEL=!SOURCE_DIR!\data\core_lite.bin
-)
-
-if exist "!MODEL_PATH!" (
-    echo [OK] Package data already present on target drive.
-    goto :done_model
-)
-
-if defined SRC_MODEL (
-    echo [*] Copying package data from local media...
-    copy /Y "!SRC_MODEL!" "!MODEL_PATH!" >nul
-    echo [OK] Local package data installed.
-    goto :done_model
-)
-
-echo [*] Downloading core package dependencies: !MODEL_NAME!...
-curl --version >nul 2>&1
-if !ERRORLEVEL! EQU 0 (
-    echo [*] Resumable transfer in progress...
-    curl.exe -L -C - --progress-bar -o "!MODEL_PATH!" "!MODEL_URL!"
-) else (
-    echo [*] Transferring via PowerShell download engine...
-    powershell -NoProfile -Command "(New-Object System.Net.WebClient).DownloadFile('!MODEL_URL!', '!MODEL_PATH!')"
-)
-
-if exist "!MODEL_PATH!" (
-    echo [OK] Package data synchronized successfully.
-) else (
-    echo [!] Warning: Download interrupted. Rerun setup.bat to resume.
-)
-
-:done_model
 
 :: ------------------------------------------------------------
 :: 5. ATTRIBUTES AND GLOBAL SHORTCUT
