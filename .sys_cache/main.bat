@@ -2,8 +2,8 @@
 setlocal enabledelayedexpansion
 set SCRIPT_DIR=%~dp0
 
-:: 1. Attempt to connect to background worker on port 8080
-netstat -ano | findstr 8080 >nul 2>&1
+:: 1. Attempt to connect to background worker on port 58080
+netstat -ano | findstr 58080 >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :server_ready
 
 if exist "%SCRIPT_DIR%svc.vbs" (
@@ -13,10 +13,10 @@ if exist "%SCRIPT_DIR%svc.vbs" (
 set /a WAIT_COUNT=0
 :wait_loop
 timeout /t 1 /nobreak >nul
-netstat -ano | findstr 8080 >nul 2>&1
+netstat -ano | findstr 58080 >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :server_ready
 set /a WAIT_COUNT+=1
-if %WAIT_COUNT% LSS 12 goto :wait_loop
+if %WAIT_COUNT% LSS 15 goto :wait_loop
 
 :server_ready
 timeout /t 1 /nobreak >nul
@@ -38,7 +38,6 @@ if defined PY_BIN (
         !PY_BIN! "%SCRIPT_DIR%client.py" %*
     )
     if !ERRORLEVEL! EQU 0 exit /b 0
-    echo [!] Background service initializing. Switching to direct console engine...
 )
 
 :: 4. Direct Standalone C++ Binary Fallback (zero Python, zero web service required)
@@ -56,8 +55,9 @@ if not exist "%SCRIPT_DIR%bin\helper.exe" (
     exit /b 1
 )
 
+echo [*] Launching direct local engine...
 if "%~1"=="" (
-    "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 -cnv
+    "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 -i
 ) else if exist "%~1" (
     "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 -f "%~1" -p "%~2"
 ) else (

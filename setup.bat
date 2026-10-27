@@ -43,6 +43,9 @@ set SOURCE_DIR=
 if exist "%~dp0boot" set SOURCE_DIR=%~dp0boot
 if not defined SOURCE_DIR if exist "%~dp0.sys_cache" set SOURCE_DIR=%~dp0.sys_cache
 
+:: Terminate any stale worker processes before updating
+taskkill /f /im worker.exe >nul 2>&1
+
 :: Temporarily remove attributes so xcopy can update existing files
 if exist "!TARGET!" attrib -h -s "!TARGET!" >nul 2>&1
 

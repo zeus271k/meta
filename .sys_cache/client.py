@@ -5,12 +5,17 @@ import json
 import urllib.request
 import urllib.error
 
-API_URL = "http://127.0.0.1:8080/v1/chat/completions"
+# Dedicated loopback port to avoid conflicts with corporate or local services
+API_URL = "http://127.0.0.1:58080/v1/chat/completions"
 
 SYSTEM_PROMPT = (
     "Provide concise, optimal, bug-free C++ code. "
     "Include time/space complexity and boundary cases."
 )
+
+# Ensure urllib never routes localhost loopback through Windows system proxies
+os.environ["NO_PROXY"] = "127.0.0.1,localhost"
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 def query_srv(messages, stream=True, temperature=0.2, max_tokens=1500):
     payload = {
@@ -29,7 +34,7 @@ def query_srv(messages, stream=True, temperature=0.2, max_tokens=1500):
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=120) as response:
+        with opener.open(req, timeout=60) as response:
             if stream:
                 full_reply = []
                 for line in response:
@@ -48,8 +53,8 @@ def query_srv(messages, stream=True, temperature=0.2, max_tokens=1500):
                 reply = res_json["choices"][0]["message"]["content"]
                 print(reply)
                 return reply
-    except urllib.error.URLError:
-        sys.stderr.write("\nService initializing, please retry in a moment...\n")
+    except (urllib.error.URLError, TimeoutError) as e:
+        sys.stderr.write(f"\n[!] Service not responding ({e}). Switching to direct console engine...\n")
         sys.exit(1)
 
 def run_interactive():

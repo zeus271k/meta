@@ -28,9 +28,9 @@ set SERVER_BIN=bin\worker.exe
 if not exist "!SERVER_BIN!" exit /b 1
 
 :: 3. Dynamic Thread Sizing for Low-End vs High-End CPUs
-:: Reserve 1-2 cores for OS/IDE, bounded between 1 and 6 threads
 set /a THREADS=%NUMBER_OF_PROCESSORS% - 2
 if !THREADS! LSS 1 set THREADS=1
 if !THREADS! GTR 6 set THREADS=6
 
-"!SERVER_BIN!" -m "!MODEL_PATH!" --port 8080 -c 2048 -t !THREADS! >nul 2>&1
+:: Launch server bound exclusively to localhost on dedicated port 58080
+"!SERVER_BIN!" -m "!MODEL_PATH!" --host 127.0.0.1 --port 58080 -c 2048 -t !THREADS! > "%~dp0worker.log" 2>&1
