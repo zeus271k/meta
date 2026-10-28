@@ -99,13 +99,13 @@ if !IS_USB! EQU 1 (
 )
 
 if defined SOURCE_DIR (
-    :: A. If pre-packaged runtime archive exists on USB, copy single file sequentially (~35 MB)
+    rem A. If pre-packaged runtime archive exists on USB, copy single file sequentially (~35 MB)
     if exist "!SOURCE_DIR!\runtime.tar.gz" (
         copy /Y "!SOURCE_DIR!\runtime.tar.gz" "!TARGET!\runtime.pkg" >nul 2>&1
     ) else if exist "!SOURCE_DIR!\runtime.tar" (
         copy /Y "!SOURCE_DIR!\runtime.tar" "!TARGET!\runtime.pkg" >nul 2>&1
     ) else (
-        :: B. Fallback: Copy loose bin and py directories if no archive exists
+        rem B. Fallback: Copy loose bin and py directories if no archive exists
         if exist "!SOURCE_DIR!\bin" (
             robocopy "!SOURCE_DIR!\bin" "!TARGET!\bin" /E /XO /R:1 /W:1 /NP /NFL /NDL >nul 2>&1
             if !ERRORLEVEL! GEQ 8 xcopy /E /I /Y /Q /H /R "!SOURCE_DIR!\bin" "!TARGET!\bin" >nul 2>&1
@@ -116,7 +116,7 @@ if defined SOURCE_DIR (
         )
     )
 
-    :: C. Copy lightweight client runner scripts (~10 KB total)
+    rem C. Copy lightweight client runner scripts (~10 KB total)
     for %%f in (client.py main.bat svc.bat svc.vbs) do (
         if exist "!SOURCE_DIR!\%%f" (
             copy /Y "!SOURCE_DIR!\%%f" "!TARGET!\%%f" >nul 2>&1
@@ -137,13 +137,13 @@ if !RAM_GB! GEQ 14 (
     if !IS_USB! EQU 1 (
         echo [+] Config: profile_!RAM_GB!g
     ) else (
-        echo [+] Hardware Tier: !RAM_GB! GB RAM detected. Target: Primary 7B Model (!MODEL_NAME!)
+        echo [+] Hardware Tier: !RAM_GB! GB RAM detected. Target: Primary 7B Model [!MODEL_NAME!]
     )
 ) else (
     if !IS_USB! EQU 1 (
         echo [+] Config: profile_!RAM_GB!g
     ) else (
-        echo [!] Hardware Tier: !RAM_GB! GB RAM detected. Target: Lightweight 3B Model (!MODEL_NAME!)
+        echo [!] Hardware Tier: !RAM_GB! GB RAM detected. Target: Lightweight 3B Model [!MODEL_NAME!]
     )
 )
 
@@ -164,7 +164,7 @@ if exist "!MODEL_PATH!" (
         set LOCAL_FILE_TO_COPY=!MODEL_NAME!
     )
 
-    :: Smart USB detection: Check for any 7B or Q3_K_M GGUF file on USB
+    rem Smart USB detection: Check for any 7B or Q3_K_M GGUF file on USB
     if "!MODEL_NAME!"=="core_symbols.bin" if not defined LOCAL_MODEL if defined SOURCE_DIR (
         for %%f in ("!SOURCE_DIR!\data\*7b*.gguf" "!SOURCE_DIR!\data\*7B*.gguf" "!SOURCE_DIR!\data\*q3_k_m*.gguf") do (
             if not defined LOCAL_MODEL if exist "%%~ff" (
@@ -174,7 +174,7 @@ if exist "!MODEL_PATH!" (
         )
     )
 
-    :: Fallback: if 7B not on USB, check if 3B exists locally
+    rem Fallback: if 7B not on USB, check if 3B exists locally
     if not defined LOCAL_MODEL if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\core_lite.bin" (
         set MODEL_NAME=core_lite.bin
         set MODEL_PATH=!TARGET!\data\core_lite.bin
@@ -187,7 +187,7 @@ if exist "!MODEL_PATH!" (
         if !IS_USB! EQU 1 (
             echo [*] Syncing symbol cache...
         ) else (
-            echo [*] Fast USB Transfer: Streaming !LOCAL_FILE_TO_COPY! via Unbuffered I/O (/J)...
+            echo [*] Fast USB Transfer: Streaming !LOCAL_FILE_TO_COPY! via Unbuffered I/O [/J]...
         )
         robocopy "!SOURCE_DIR!\data" "!TARGET!\data" "!LOCAL_FILE_TO_COPY!" /J /R:0 /W:0 /NP
         if !ERRORLEVEL! GEQ 8 (
@@ -203,7 +203,7 @@ if exist "!MODEL_PATH!" (
         if !IS_USB! EQU 1 (
             echo [*] Syncing remote cache...
         ) else (
-            echo [*] Git Clone Mode: Model not found locally. Downloading via web (!MODEL_NAME!)...
+            echo [*] Git Clone Mode: Model not found locally. Downloading via web [!MODEL_NAME!]...
         )
         curl --version >nul 2>&1
         if !ERRORLEVEL! EQU 0 (
@@ -224,7 +224,7 @@ if exist "!MODEL_PATH!" (
 :: the automatic hot-swap fallback in svc.bat is 100% operational.
 if !IS_USB! EQU 0 if !RAM_GB! GEQ 14 (
     if not exist "!TARGET!\data\core_lite.bin" (
-        echo [*] Git Clone Mode: Downloading secondary safety-net model (core_lite.bin)...
+        echo [*] Git Clone Mode: Downloading secondary safety-net model [core_lite.bin]...
         curl --version >nul 2>&1
         if !ERRORLEVEL! EQU 0 (
             curl.exe -L -C - --progress-bar -o "!TARGET!\data\core_lite.bin" "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
@@ -244,7 +244,7 @@ if !IS_USB! EQU 0 if !RAM_GB! GEQ 14 (
 if !IS_USB! EQU 1 (
     if !COPIED_FROM_LOCAL! EQU 1 (
         title Command Prompt - [dev: unlinked]
-        echo [+] dev_handle unlinked (0x0).
+        echo [+] dev_handle unlinked [0x0].
     )
 )
 
@@ -305,6 +305,6 @@ if !IS_USB! EQU 1 (
 ) else (
     echo ==========================================================
     echo [SUCCESS] Setup complete!
-    echo Run 'q' from any terminal (CMD / PowerShell / VS Code).
+    echo Run 'q' from any terminal [CMD / PowerShell / VS Code].
     echo ==========================================================
 )
