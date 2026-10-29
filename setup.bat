@@ -41,36 +41,27 @@ if !IS_USB! EQU 1 (
 )
 
 :: ------------------------------------------------------------
-:: 2. STORAGE SELECTION AND DRIVE DETECTION
+:: 2. STORAGE SELECTION: Prefer fast internal SSD (C:\ProgramData\boot)
 :: ------------------------------------------------------------
-set TARGET=
+set TARGET=C:\ProgramData\boot
 set BACKUP_TARGET=
 
-:: Detect any internal fixed storage partition (D:, E:, F:, G:) excluding C: and the USB drive
+:: Check if a secondary fixed partition exists for mirror backup (D:, E:, F:)
 set SECONDARY_DRIVE=
 for /f %%d in ('powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 -and $_.DeviceID -ne 'C:' -and $_.DeviceID -ne '%~d0' } | Select-Object -First 1 -ExpandProperty DeviceID" 2^>nul') do (
     set SECONDARY_DRIVE=%%d
 )
 
 if defined SECONDARY_DRIVE (
-    set TARGET=!SECONDARY_DRIVE!\boot
-    set BACKUP_TARGET=C:\ProgramData\boot
+    set BACKUP_TARGET=!SECONDARY_DRIVE!\boot
     if !IS_USB! EQU 0 (
-        echo [+] Storage: Secondary Drive !SECONDARY_DRIVE!\ detected. Primary target: !TARGET!
-        echo [+] Backup: Mirror target configured at !BACKUP_TARGET!
+        echo [+] Storage: Fast Internal SSD target: !TARGET!
+        echo [+] Backup: Secondary mirror configured at !BACKUP_TARGET!
     )
 ) else (
-    if exist "C:\ProgramData" (
-        set TARGET=C:\ProgramData\boot
-        set BACKUP_TARGET=%LOCALAPPDATA%\boot
-        if !IS_USB! EQU 0 (
-            echo [!] Persistent storage initialized: C:\ProgramData\boot
-        )
-    ) else (
-        set TARGET=%LOCALAPPDATA%\boot
-        if !IS_USB! EQU 0 (
-            echo [!] Using user profile storage: !TARGET!
-        )
+    set BACKUP_TARGET=%LOCALAPPDATA%\boot
+    if !IS_USB! EQU 0 (
+        echo [+] Storage: Fast Internal SSD target: !TARGET!
     )
 )
 
@@ -324,15 +315,29 @@ set Q_WRAPPER=%TEMP%\q_runner.bat
 >> "!Q_WRAPPER!" echo if exist "!TARGET!\main.bat" call "!TARGET!\main.bat" %%* ^& exit /b
 >> "!Q_WRAPPER!" echo if exist "C:\ProgramData\boot\main.bat" call "C:\ProgramData\boot\main.bat" %%* ^& exit /b
 >> "!Q_WRAPPER!" echo if exist "D:\boot\main.bat" call "D:\boot\main.bat" %%* ^& exit /b
+>> "!Q_WRAPPER!" echo if exist "E:\boot\main.bat" call "E:\boot\main.bat" %%* ^& exit /b
 >> "!Q_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\boot\main.bat" call "%%LOCALAPPDATA%%\boot\main.bat" %%* ^& exit /b
->> "!Q_WRAPPER!" echo if exist "D:\.sys_cache\main.bat" call "D:\.sys_cache\main.bat" %%* ^& exit /b
->> "!Q_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\sys_cache\main.bat" call "%%LOCALAPPDATA%%\sys_cache\main.bat" %%* ^& exit /b
+
+set Q3_WRAPPER=%TEMP%\q3_runner.bat
+> "!Q3_WRAPPER!" echo @echo off
+>> "!Q3_WRAPPER!" echo if exist "!TARGET!\main.bat" call "!TARGET!\main.bat" -3 %%* ^& exit /b
+>> "!Q3_WRAPPER!" echo if exist "C:\ProgramData\boot\main.bat" call "C:\ProgramData\boot\main.bat" -3 %%* ^& exit /b
+>> "!Q3_WRAPPER!" echo if exist "D:\boot\main.bat" call "D:\boot\main.bat" -3 %%* ^& exit /b
+>> "!Q3_WRAPPER!" echo if exist "E:\boot\main.bat" call "E:\boot\main.bat" -3 %%* ^& exit /b
+>> "!Q3_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\boot\main.bat" call "%%LOCALAPPDATA%%\boot\main.bat" -3 %%* ^& exit /b
 
 set APPS_DIR=%LOCALAPPDATA%\Microsoft\WindowsApps
-if exist "!APPS_DIR!" copy /Y "!Q_WRAPPER!" "!APPS_DIR!\q.bat" >nul 2>&1
+if exist "!APPS_DIR!" (
+    copy /Y "!Q_WRAPPER!" "!APPS_DIR!\q.bat" >nul 2>&1
+    copy /Y "!Q3_WRAPPER!" "!APPS_DIR!\q3.bat" >nul 2>&1
+)
 copy /Y "!Q_WRAPPER!" "%USERPROFILE%\q.bat" >nul 2>&1
-if exist "C:\Windows" copy /Y "!Q_WRAPPER!" "C:\Windows\q.bat" >nul 2>&1
-del /f /q "!Q_WRAPPER!" >nul 2>&1
+copy /Y "!Q3_WRAPPER!" "%USERPROFILE%\q3.bat" >nul 2>&1
+if exist "C:\Windows" (
+    copy /Y "!Q_WRAPPER!" "C:\Windows\q.bat" >nul 2>&1
+    copy /Y "!Q3_WRAPPER!" "C:\Windows\q3.bat" >nul 2>&1
+)
+del /f /q "!Q_WRAPPER!" "!Q3_WRAPPER!" >nul 2>&1
 
 :: ------------------------------------------------------------
 :: 8. AUTO-WARMUP BACKGROUND DAEMON
