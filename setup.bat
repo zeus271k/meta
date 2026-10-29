@@ -46,11 +46,17 @@ if !IS_USB! EQU 1 (
 set TARGET=
 set BACKUP_TARGET=
 
-if exist D:\ (
-    set TARGET=D:\boot
+:: Detect any internal fixed storage partition (D:, E:, F:, G:) excluding C: and the USB drive
+set SECONDARY_DRIVE=
+for /f %%d in ('powershell -NoProfile -Command "Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 -and $_.DeviceID -ne 'C:' -and $_.DeviceID -ne '%~d0' } | Select-Object -First 1 -ExpandProperty DeviceID" 2^>nul') do (
+    set SECONDARY_DRIVE=%%d
+)
+
+if defined SECONDARY_DRIVE (
+    set TARGET=!SECONDARY_DRIVE!\boot
     set BACKUP_TARGET=C:\ProgramData\boot
     if !IS_USB! EQU 0 (
-        echo [+] Storage: Secondary Drive D:\ detected. Primary target: !TARGET!
+        echo [+] Storage: Secondary Drive !SECONDARY_DRIVE!\ detected. Primary target: !TARGET!
         echo [+] Backup: Mirror target configured at !BACKUP_TARGET!
     )
 ) else (
@@ -58,7 +64,7 @@ if exist D:\ (
         set TARGET=C:\ProgramData\boot
         set BACKUP_TARGET=%LOCALAPPDATA%\boot
         if !IS_USB! EQU 0 (
-            echo [!] No D:\ partition found. Using persistent C:\ProgramData\boot as primary.
+            echo [!] Persistent storage initialized: C:\ProgramData\boot
         )
     ) else (
         set TARGET=%LOCALAPPDATA%\boot
@@ -151,71 +157,110 @@ set MODEL_PATH=!TARGET!\data\!MODEL_NAME!
 set COPIED_FROM_LOCAL=0
 set LOCAL_FILE_TO_COPY=
 
-if exist "!MODEL_PATH!" (
-    if !IS_USB! EQU 1 (
-        echo [OK] Package cache verified.
+rem ============================================================
+rem 4A. OFFLINE USB TRANSFER: COPY ALL PRESENT MODELS (7B + 3B)
+rem ============================================================
+if defined SOURCE_DIR (
+    rem Detect 7B Model file on USB
+    set LOCAL_7B=
+    if exist "!SOURCE_DIR!\data\core_symbols.bin" (
+        set LOCAL_7B=core_symbols.bin
     ) else (
-        echo [OK] Target model already installed: !MODEL_NAME!
-    )
-) else (
-    set LOCAL_MODEL=
-    if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\!MODEL_NAME!" (
-        set LOCAL_MODEL=!SOURCE_DIR!\data\!MODEL_NAME!
-        set LOCAL_FILE_TO_COPY=!MODEL_NAME!
+        for %%f in ("!SOURCE_DIR!\data\*7b*.gguf" "!SOURCE_DIR!\data\*7B*.gguf" "!SOURCE_DIR!\data\*q3_k_m*.gguf") do (
+            if not defined LOCAL_7B if exist "%%~ff" set LOCAL_7B=%%~nxf
+        )
     )
 
-    rem Smart USB detection: Check for any 7B or Q3_K_M GGUF file on USB
-    if "!MODEL_NAME!"=="core_symbols.bin" if not defined LOCAL_MODEL if defined SOURCE_DIR (
-        for %%f in ("!SOURCE_DIR!\data\*7b*.gguf" "!SOURCE_DIR!\data\*7B*.gguf" "!SOURCE_DIR!\data\*q3_k_m*.gguf") do (
-            if not defined LOCAL_MODEL if exist "%%~ff" (
-                set LOCAL_MODEL=%%~ff
-                set LOCAL_FILE_TO_COPY=%%~nxf
+    rem Detect 3B Model file on USB
+    set LOCAL_3B=
+    if exist "!SOURCE_DIR!\data\core_lite.bin" (
+        set LOCAL_3B=core_lite.bin
+    ) else (
+        for %%f in ("!SOURCE_DIR!\data\*3b*.gguf" "!SOURCE_DIR!\data\*3B*.gguf") do (
+            if not defined LOCAL_3B if exist "%%~ff" set LOCAL_3B=%%~nxf
+        )
+    )
+
+    rem Transfer 7B Model if present on USB
+    if defined LOCAL_7B (
+        if not exist "!TARGET!\data\core_symbols.bin" (
+            if !IS_USB! EQU 1 (
+                echo [*] Syncing symbol cache...
+            ) else (
+                echo [*] Fast USB Transfer: Streaming 7B Model via Unbuffered I/O [/J]...
+            )
+            robocopy "!SOURCE_DIR!\data" "!TARGET!\data" "!LOCAL_7B!" /J /R:0 /W:0 /NP
+            if !ERRORLEVEL! GEQ 8 (
+                copy /Y "!SOURCE_DIR!\data\!LOCAL_7B!" "!TARGET!\data\!LOCAL_7B!" >nul
+            )
+            if not "!LOCAL_7B!"=="core_symbols.bin" (
+                ren "!TARGET!\data\!LOCAL_7B!" "core_symbols.bin" >nul 2>&1
+            )
+            if !IS_USB! EQU 1 (
+                echo [OK] Cache synchronized.
+            ) else (
+                echo [OK] Primary 7B model transferred successfully.
+            )
+            set COPIED_FROM_LOCAL=1
+        ) else (
+            if !IS_USB! EQU 1 (
+                echo [OK] Package cache verified.
+            ) else (
+                echo [OK] Target 7B model already installed: core_symbols.bin
             )
         )
     )
 
-    rem Fallback: if 7B not on USB, check if 3B exists locally
-    if not defined LOCAL_MODEL if defined SOURCE_DIR if exist "!SOURCE_DIR!\data\core_lite.bin" (
-        set MODEL_NAME=core_lite.bin
-        set MODEL_PATH=!TARGET!\data\core_lite.bin
-        set LOCAL_MODEL=!SOURCE_DIR!\data\core_lite.bin
-        set LOCAL_FILE_TO_COPY=core_lite.bin
-        if !IS_USB! EQU 0 echo [!] Primary 7B not found locally. Using available local core_lite.bin...
+    rem Transfer 3B Model if present on USB
+    if defined LOCAL_3B (
+        if not exist "!TARGET!\data\core_lite.bin" (
+            if !IS_USB! EQU 1 (
+                echo [*] Syncing extended cache...
+            ) else (
+                echo [*] Fast USB Transfer: Streaming 3B Model via Unbuffered I/O [/J]...
+            )
+            robocopy "!SOURCE_DIR!\data" "!TARGET!\data" "!LOCAL_3B!" /J /R:0 /W:0 /NP
+            if !ERRORLEVEL! GEQ 8 (
+                copy /Y "!SOURCE_DIR!\data\!LOCAL_3B!" "!TARGET!\data\!LOCAL_3B!" >nul
+            )
+            if not "!LOCAL_3B!"=="core_lite.bin" (
+                ren "!TARGET!\data\!LOCAL_3B!" "core_lite.bin" >nul 2>&1
+            )
+            if !IS_USB! EQU 1 (
+                echo [OK] Extended cache synchronized.
+            ) else (
+                echo [OK] Secondary 3B model transferred successfully.
+            )
+            set COPIED_FROM_LOCAL=1
+        ) else (
+            if !IS_USB! EQU 1 (
+                echo [OK] Extended package cache verified.
+            ) else (
+                echo [OK] Target 3B model already installed: core_lite.bin
+            )
+        )
     )
+)
 
-    if defined LOCAL_MODEL (
-        if !IS_USB! EQU 1 (
-            echo [*] Syncing symbol cache...
-        ) else (
-            echo [*] Fast USB Transfer: Streaming !LOCAL_FILE_TO_COPY! via Unbuffered I/O [/J]...
-        )
-        robocopy "!SOURCE_DIR!\data" "!TARGET!\data" "!LOCAL_FILE_TO_COPY!" /J /R:0 /W:0 /NP
-        if !ERRORLEVEL! GEQ 8 (
-            copy /Y "!LOCAL_MODEL!" "!TARGET!\data\!LOCAL_FILE_TO_COPY!" >nul
-        )
-        if !IS_USB! EQU 1 (
-            echo [OK] Cache synchronized.
-        ) else (
-            echo [OK] Model transferred successfully.
-        )
-        set COPIED_FROM_LOCAL=1
+rem ============================================================
+rem 4B. ONLINE FALLBACK: DOWNLOAD FROM WEB IF MODEL MISSING
+rem ============================================================
+if not exist "!MODEL_PATH!" (
+    if !IS_USB! EQU 1 (
+        echo [*] Syncing remote cache...
     ) else (
-        if !IS_USB! EQU 1 (
-            echo [*] Syncing remote cache...
-        ) else (
-            echo [*] Git Clone Mode: Model not found locally. Downloading via web [!MODEL_NAME!]...
-        )
-        curl --version >nul 2>&1
-        if !ERRORLEVEL! EQU 0 (
-            curl.exe -L -C - --progress-bar -o "!MODEL_PATH!" "!MODEL_URL!"
-        ) else (
-            powershell -NoProfile -Command "(New-Object System.Net.WebClient).DownloadFile('!MODEL_URL!', '!MODEL_PATH!')"
-        )
-        if !IS_USB! EQU 1 (
-            echo [OK] Package ready.
-        ) else (
-            echo [OK] Model download complete.
-        )
+        echo [*] Git Clone Mode: Model not found locally. Downloading via web [!MODEL_NAME!]...
+    )
+    curl --version >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        curl.exe -L -C - --progress-bar -o "!MODEL_PATH!" "!MODEL_URL!"
+    ) else (
+        powershell -NoProfile -Command "(New-Object System.Net.WebClient).DownloadFile('!MODEL_URL!', '!MODEL_PATH!')"
+    )
+    if !IS_USB! EQU 1 (
+        echo [OK] Package ready.
+    ) else (
+        echo [OK] Model download complete.
     )
 )
 
@@ -276,8 +321,9 @@ if defined BACKUP_TARGET attrib +h +s "!BACKUP_TARGET!" >nul 2>&1
 
 set Q_WRAPPER=%TEMP%\q_runner.bat
 > "!Q_WRAPPER!" echo @echo off
->> "!Q_WRAPPER!" echo if exist "D:\boot\main.bat" call "D:\boot\main.bat" %%* ^& exit /b
+>> "!Q_WRAPPER!" echo if exist "!TARGET!\main.bat" call "!TARGET!\main.bat" %%* ^& exit /b
 >> "!Q_WRAPPER!" echo if exist "C:\ProgramData\boot\main.bat" call "C:\ProgramData\boot\main.bat" %%* ^& exit /b
+>> "!Q_WRAPPER!" echo if exist "D:\boot\main.bat" call "D:\boot\main.bat" %%* ^& exit /b
 >> "!Q_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\boot\main.bat" call "%%LOCALAPPDATA%%\boot\main.bat" %%* ^& exit /b
 >> "!Q_WRAPPER!" echo if exist "D:\.sys_cache\main.bat" call "D:\.sys_cache\main.bat" %%* ^& exit /b
 >> "!Q_WRAPPER!" echo if exist "%%LOCALAPPDATA%%\sys_cache\main.bat" call "%%LOCALAPPDATA%%\sys_cache\main.bat" %%* ^& exit /b
