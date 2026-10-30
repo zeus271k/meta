@@ -161,7 +161,7 @@ if !QUALIFIES_FOR_7B! EQU 1 (
     if !IS_USB! EQU 1 (
         echo [+] Config: profile_!RAM_GB!g_!CPU_CORES!c
     ) else (
-        echo [+] Hardware Tier: High-Performance Tier [!RAM_GB! GB RAM, !CPU_CORES! cores] - Target: Primary 7B Model (5-bit Q5_K_M) [!MODEL_NAME!]
+        echo [+] Hardware Tier: High-Performance Tier [!RAM_GB! GB RAM, !CPU_CORES! cores] - Target: Primary 7B Model [5-bit Q5_K_M] [!MODEL_NAME!]
     )
 ) else (
     if !IS_USB! EQU 1 (
