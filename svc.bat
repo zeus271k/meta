@@ -13,12 +13,21 @@ if defined MODEL_NAME (
     if exist "data\!MODEL_NAME!" set "MODEL_PATH=data\!MODEL_NAME!"
 )
 
-:: Fallback: check what models exist on disk
+:: Fallback if tier.cfg is missing: Probe RAM to choose safely
 if not defined MODEL_PATH (
-    if exist "data\core_symbols.bin" (
-        set MODEL_PATH=data\core_symbols.bin
-    ) else if exist "data\core_lite.bin" (
-        set MODEL_PATH=data\core_lite.bin
+    set RAM_GB=8
+    for /f %%a in ('powershell -NoProfile -Command "[Math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1048576)" 2^>nul') do (
+        set RAM_GB=%%a
+    )
+    if !RAM_GB! GEQ 14 (
+        if exist "data\core_symbols.bin" set MODEL_PATH=data\core_symbols.bin
+    )
+    if not defined MODEL_PATH (
+        if exist "data\core_lite.bin" (
+            set MODEL_PATH=data\core_lite.bin
+        ) else if exist "data\core_symbols.bin" (
+            set MODEL_PATH=data\core_symbols.bin
+        )
     )
 )
 

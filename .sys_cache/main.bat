@@ -131,10 +131,12 @@ if "%~1"=="" (
 
 if %ERRORLEVEL% NEQ 0 (
     if exist "%SCRIPT_DIR%data\core_lite.bin" (
-        if /i not "!MODEL!"=="%SCRIPT_DIR%data\core_lite.bin" (
+        if /i "!MODEL!" NEQ "%SCRIPT_DIR%data\core_lite.bin" (
             echo [!] Primary model engine failed. Auto-falling back to 3B safety net...
             if "%~1"=="" (
                 "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 --conversation
+            ) else if exist "%~1" (
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -f "%~1" -p "%~2"
             ) else (
                 "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -p "%*"
             )
