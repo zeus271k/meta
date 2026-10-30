@@ -9,7 +9,6 @@ if /i "%~1"=="--lite" goto :run_3b
 goto :run_normal
 
 :run_3b
-shift
 set "LITE_MODEL=%SCRIPT_DIR%data\core_lite.bin"
 if not exist "!LITE_MODEL!" (
     if exist "%SCRIPT_DIR%data\core_symbols.bin" (
@@ -23,13 +22,28 @@ if not exist "%SCRIPT_DIR%bin\helper.exe" (
     echo [!] Error: Native helper binary is missing from "%SCRIPT_DIR%bin".
     exit /b 1
 )
-echo [*] Launching lightweight engine directly...
-if "%~1"=="" (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 -i
-) else if exist "%~1" (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 -f "%~1" -p "%~2"
+
+:: Strip leading 3B flags from arguments
+set "PROMPT_ARGS="
+:strip_3b_args
+if "%~1"=="" goto :exec_3b
+if /i "%~1"=="-3" (shift & goto :strip_3b_args)
+if /i "%~1"=="--3b" (shift & goto :strip_3b_args)
+if /i "%~1"=="--lite" (shift & goto :strip_3b_args)
+if not defined PROMPT_ARGS (
+    set "PROMPT_ARGS=%1"
 ) else (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 -p "%*"
+    set "PROMPT_ARGS=!PROMPT_ARGS! %1"
+)
+shift
+goto :strip_3b_args
+
+:exec_3b
+echo [*] Launching lightweight engine directly...
+if not defined PROMPT_ARGS (
+    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 --conversation
+) else (
+    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 -p !PROMPT_ARGS!
 )
 exit /b !ERRORLEVEL!
 
@@ -48,11 +62,16 @@ timeout /t 1 /nobreak >nul
 netstat -ano | findstr 58080 >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :server_ready
 set /a WAIT_COUNT+=1
-if %WAIT_COUNT% GTR 5 (
+
+:: Give worker at least 10 seconds to load weights before checking if it crashed
+if %WAIT_COUNT% GTR 10 (
     tasklist /fi "imagename eq worker.exe" 2>nul | findstr /i worker.exe >nul 2>&1
     if !ERRORLEVEL! NEQ 0 goto :direct_fallback
 )
-if %WAIT_COUNT% LSS 35 goto :wait_loop
+if %WAIT_COUNT% LSS 30 goto :wait_loop
+
+netstat -ano | findstr 58080 >nul 2>&1
+if %ERRORLEVEL% NEQ 0 goto :direct_fallback
 
 :server_ready
 timeout /t 1 /nobreak >nul
@@ -103,7 +122,7 @@ if not exist "%SCRIPT_DIR%bin\helper.exe" (
 
 echo [*] Launching direct local engine...
 if "%~1"=="" (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -i
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 --conversation
 ) else if exist "%~1" (
     "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -f "%~1" -p "%~2"
 ) else (
@@ -115,7 +134,7 @@ if %ERRORLEVEL% NEQ 0 (
         if /i not "!MODEL!"=="%SCRIPT_DIR%data\core_lite.bin" (
             echo [!] Primary model engine failed. Auto-falling back to 3B safety net...
             if "%~1"=="" (
-                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -i
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 --conversation
             ) else (
                 "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -p "%*"
             )

@@ -3,36 +3,37 @@ setlocal enabledelayedexpansion
 
 cd /d "%~dp0"
 
-:: 1. Detect RAM with 8 GB Safe Default
-set RAM_GB=8
-for /f %%a in ('powershell -NoProfile -Command "[Math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1048576)" 2^>nul') do (
-    set RAM_GB=%%a
+:: 1. Instant Tier Selection: Read pre-configured tier if available (0.001s, no slow powershell)
+set MODEL_NAME=
+if exist "%~dp0tier.cfg" (
+    set /p MODEL_NAME=<"%~dp0tier.cfg"
+    set MODEL_NAME=!MODEL_NAME: =!
+)
+if defined MODEL_NAME (
+    if exist "data\!MODEL_NAME!" set "MODEL_PATH=data\!MODEL_NAME!"
 )
 
-:: 2. Tier Selection: 7B Model for >= 14GB RAM, 3B Model for 8GB RAM
-if !RAM_GB! GEQ 14 (
-    set MODEL_PATH=data\core_symbols.bin
-) else (
-    set MODEL_PATH=data\core_lite.bin
+:: Fallback: check what models exist on disk
+if not defined MODEL_PATH (
+    if exist "data\core_symbols.bin" (
+        set MODEL_PATH=data\core_symbols.bin
+    ) else if exist "data\core_lite.bin" (
+        set MODEL_PATH=data\core_lite.bin
+    )
 )
 
-:: Model Existence Fallback (if chosen tier is missing, use whatever is present)
-if not exist "!MODEL_PATH!" (
-    if exist "data\core_symbols.bin" set MODEL_PATH=data\core_symbols.bin
-    if exist "data\core_lite.bin" set MODEL_PATH=data\core_lite.bin
-)
-
+if not defined MODEL_PATH exit /b 1
 if not exist "!MODEL_PATH!" exit /b 1
 
 set SERVER_BIN=bin\worker.exe
 if not exist "!SERVER_BIN!" exit /b 1
 
-:: 3. Dynamic Thread Sizing for Low-End vs High-End CPUs
+:: 2. Dynamic Thread Sizing for Low-End vs High-End CPUs
 set /a THREADS=%NUMBER_OF_PROCESSORS% - 2
 if !THREADS! LSS 1 set THREADS=1
 if !THREADS! GTR 6 set THREADS=6
 
-:: Launch server bound exclusively to localhost on dedicated port 58080
+:: 3. Launch server bound exclusively to localhost on dedicated port 58080
 "!SERVER_BIN!" -m "!MODEL_PATH!" --host 127.0.0.1 --port 58080 -c 4096 -t !THREADS! > "%~dp0worker.log" 2>&1
 
 :: 4. Automatic Hot-Swap Fallback (Safety Net)

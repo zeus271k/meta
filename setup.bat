@@ -148,6 +148,8 @@ if !RAM_GB! GEQ 14 (
 )
 
 set MODEL_PATH=!TARGET!\data\!MODEL_NAME!
+> "!TARGET!\tier.cfg" echo !MODEL_NAME!
+if defined BACKUP_TARGET > "!BACKUP_TARGET!\tier.cfg" echo !MODEL_NAME!
 set COPIED_FROM_LOCAL=0
 set LOCAL_FILE_TO_COPY=
 

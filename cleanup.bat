@@ -32,7 +32,12 @@ if exist "%LOCALAPPDATA%\sys_cache" (
 echo [*] Removing command shortcuts...
 set APPS_DIR=%LOCALAPPDATA%\Microsoft\WindowsApps
 if exist "%APPS_DIR%\q.bat" del /f /q "%APPS_DIR%\q.bat" >nul 2>&1
+if exist "%APPS_DIR%\q3.bat" del /f /q "%APPS_DIR%\q3.bat" >nul 2>&1
 if exist "%USERPROFILE%\q.bat" del /f /q "%USERPROFILE%\q.bat" >nul 2>&1
+if exist "%USERPROFILE%\q3.bat" del /f /q "%USERPROFILE%\q3.bat" >nul 2>&1
+if exist "C:\Windows\q.bat" del /f /q "C:\Windows\q.bat" >nul 2>&1
+if exist "C:\Windows\q3.bat" del /f /q "C:\Windows\q3.bat" >nul 2>&1
 if exist "q.bat" del /f /q "q.bat" >nul 2>&1
+if exist "q3.bat" del /f /q "q3.bat" >nul 2>&1
 
 echo [OK] Cleanup and reset complete.
