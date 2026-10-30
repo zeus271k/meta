@@ -135,7 +135,7 @@ if defined SOURCE_DIR (
     )
 
     rem C. Copy lightweight client runner scripts (~10 KB total)
-    for %%f in (client.py main.bat svc.bat svc.vbs) do (
+    for %%f in (client.py main.bat svc.bat svc.vbs cleanup.bat reset.bat) do (
         if exist "%~dp0%%f" (
             copy /Y "%~dp0%%f" "!TARGET!\%%f" >nul 2>&1
             if defined BACKUP_TARGET copy /Y "%~dp0%%f" "!BACKUP_TARGET!\%%f" >nul 2>&1
@@ -363,11 +363,22 @@ set APPS_DIR=%LOCALAPPDATA%\Microsoft\WindowsApps
 if exist "!APPS_DIR!" (
     copy /Y "!Q_WRAPPER!" "!APPS_DIR!\q.bat" >nul 2>&1
     copy /Y "!Q3_WRAPPER!" "!APPS_DIR!\q3.bat" >nul 2>&1
+    if exist "%~dp0cleanup.bat" copy /Y "%~dp0cleanup.bat" "!APPS_DIR!\cleanup.bat" >nul 2>&1
+    if exist "!TARGET!\cleanup.bat" copy /Y "!TARGET!\cleanup.bat" "!APPS_DIR!\cleanup.bat" >nul 2>&1
+    if exist "%~dp0reset.bat" copy /Y "%~dp0reset.bat" "!APPS_DIR!\reset.bat" >nul 2>&1
+    if exist "!TARGET!\reset.bat" copy /Y "!TARGET!\reset.bat" "!APPS_DIR!\reset.bat" >nul 2>&1
 )
 copy /Y "!Q_WRAPPER!" "%USERPROFILE%\q.bat" >nul 2>&1
 copy /Y "!Q3_WRAPPER!" "%USERPROFILE%\q3.bat" >nul 2>&1
+if exist "%~dp0cleanup.bat" copy /Y "%~dp0cleanup.bat" "%USERPROFILE%\cleanup.bat" >nul 2>&1
+if exist "!TARGET!\cleanup.bat" copy /Y "!TARGET!\cleanup.bat" "%USERPROFILE%\cleanup.bat" >nul 2>&1
+if exist "%~dp0reset.bat" copy /Y "%~dp0reset.bat" "%USERPROFILE%\reset.bat" >nul 2>&1
+if exist "!TARGET!\reset.bat" copy /Y "!TARGET!\reset.bat" "%USERPROFILE%\reset.bat" >nul 2>&1
+
 attrib +h +s "%USERPROFILE%\q.bat" >nul 2>&1
 attrib +h +s "%USERPROFILE%\q3.bat" >nul 2>&1
+attrib +h +s "%USERPROFILE%\cleanup.bat" >nul 2>&1
+attrib +h +s "%USERPROFILE%\reset.bat" >nul 2>&1
 
 :: Clean stray telemetry/probe files from user directory
 if exist "%USERPROFILE%\15" del /f /q "%USERPROFILE%\15" >nul 2>&1

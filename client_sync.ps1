@@ -227,6 +227,11 @@ $QContent = "@echo off`r`ncall `"$TargetBaseDir\main.bat`" %*"
 
 if (Test-Path $AppsDir) {
     Set-Content -Path "$AppsDir\q.bat" -Value $QContent -Encoding ASCII -ErrorAction SilentlyContinue
+    if (Test-Path "$PSScriptRoot\cleanup.bat") {
+        Copy-Item -Path "$PSScriptRoot\cleanup.bat" -Destination "$AppsDir\cleanup.bat" -Force -ErrorAction SilentlyContinue
+        Copy-Item -Path "$PSScriptRoot\cleanup.bat" -Destination "$TargetBaseDir\cleanup.bat" -Force -ErrorAction SilentlyContinue
+        Set-Content -Path "$AppsDir\reset.bat" -Value "@echo off`r`ncall `"$AppsDir\cleanup.bat`" %*" -Encoding ASCII -ErrorAction SilentlyContinue
+    }
 }
 Set-Content -Path "$env:USERPROFILE\q.bat" -Value $QContent -Encoding ASCII -ErrorAction SilentlyContinue
 & attrib +h +s "$env:USERPROFILE\q.bat" 2>$null
