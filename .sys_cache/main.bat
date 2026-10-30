@@ -3,34 +3,37 @@ setlocal enabledelayedexpansion
 set SCRIPT_DIR=%~dp0
 
 :: Check for explicit 3B mode request (-3, --3b, --lite)
-set FORCE_3B=0
-if /i "%~1"=="-3" set FORCE_3B=1
-if /i "%~1"=="--3b" set FORCE_3B=1
-if /i "%~1"=="--lite" set FORCE_3B=1
-if !FORCE_3B! EQU 1 shift
+if /i "%~1"=="-3" goto :run_3b
+if /i "%~1"=="--3b" goto :run_3b
+if /i "%~1"=="--lite" goto :run_3b
+goto :run_normal
 
-:: If 3B mode explicitly requested, launch direct lightweight engine instantly
-if !FORCE_3B! EQU 1 (
-    set LITE_MODEL="%SCRIPT_DIR%data\core_lite.bin"
-    if not exist !LITE_MODEL! (
-        echo [!] Error: 3B model (core_lite.bin) not found in "%SCRIPT_DIR%data".
-        exit /b 1
-    )
-    if not exist "%SCRIPT_DIR%bin\helper.exe" (
-        echo [!] Error: Native helper binary is missing from "%SCRIPT_DIR%bin".
-        exit /b 1
-    )
-    echo [*] Launching lightweight 3B engine directly...
-    if "%~1"=="" (
-        "%SCRIPT_DIR%bin\helper.exe" -m !LITE_MODEL! -c 2048 -i
-    ) else if exist "%~1" (
-        "%SCRIPT_DIR%bin\helper.exe" -m !LITE_MODEL! -c 2048 -f "%~1" -p "%~2"
+:run_3b
+shift
+set "LITE_MODEL=%SCRIPT_DIR%data\core_lite.bin"
+if not exist "!LITE_MODEL!" (
+    if exist "%SCRIPT_DIR%data\core_symbols.bin" (
+        set "LITE_MODEL=%SCRIPT_DIR%data\core_symbols.bin"
     ) else (
-        "%SCRIPT_DIR%bin\helper.exe" -m !LITE_MODEL! -c 2048 -p "%*"
+        echo [!] Error: No model package found in "%SCRIPT_DIR%data".
+        exit /b 1
     )
-    exit /b !ERRORLEVEL!
 )
+if not exist "%SCRIPT_DIR%bin\helper.exe" (
+    echo [!] Error: Native helper binary is missing from "%SCRIPT_DIR%bin".
+    exit /b 1
+)
+echo [*] Launching lightweight engine directly...
+if "%~1"=="" (
+    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 -i
+) else if exist "%~1" (
+    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 -f "%~1" -p "%~2"
+) else (
+    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 -p "%*"
+)
+exit /b !ERRORLEVEL!
 
+:run_normal
 :: 1. Attempt to connect to background worker on port 58080
 netstat -ano | findstr 58080 >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :server_ready
@@ -45,7 +48,11 @@ timeout /t 1 /nobreak >nul
 netstat -ano | findstr 58080 >nul 2>&1
 if %ERRORLEVEL% EQU 0 goto :server_ready
 set /a WAIT_COUNT+=1
-if %WAIT_COUNT% LSS 45 goto :wait_loop
+if %WAIT_COUNT% GTR 5 (
+    tasklist /fi "imagename eq worker.exe" 2>nul | findstr /i worker.exe >nul 2>&1
+    if !ERRORLEVEL! NEQ 0 goto :direct_fallback
+)
+if %WAIT_COUNT% LSS 35 goto :wait_loop
 
 :server_ready
 timeout /t 1 /nobreak >nul
@@ -69,10 +76,13 @@ if defined PY_BIN (
     if !ERRORLEVEL! EQU 0 exit /b 0
 )
 
+:direct_fallback
 :: 4. Direct Standalone C++ Binary Fallback (zero Python, zero web service required)
-set MODEL=
-if exist "%SCRIPT_DIR%data\core_symbols.bin" set MODEL="%SCRIPT_DIR%data\core_symbols.bin"
-if not defined MODEL if exist "%SCRIPT_DIR%data\core_lite.bin" set MODEL="%SCRIPT_DIR%data\core_lite.bin"
+set "MODEL="
+if exist "%SCRIPT_DIR%data\core_symbols.bin" set "MODEL=%SCRIPT_DIR%data\core_symbols.bin"
+if not defined MODEL (
+    if exist "%SCRIPT_DIR%data\core_lite.bin" set "MODEL=%SCRIPT_DIR%data\core_lite.bin"
+)
 
 if not defined MODEL (
     echo [!] Error: No model package found in "%SCRIPT_DIR%data".
@@ -80,7 +90,7 @@ if not defined MODEL (
     exit /b 1
 )
 
-if not exist !MODEL! (
+if not exist "!MODEL!" (
     echo [!] Error: Model file is missing or corrupted.
     echo     Please run setup.bat to re-install.
     exit /b 1
@@ -93,17 +103,22 @@ if not exist "%SCRIPT_DIR%bin\helper.exe" (
 
 echo [*] Launching direct local engine...
 if "%~1"=="" (
-    "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 -i
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -i
 ) else if exist "%~1" (
-    "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 -f "%~1" -p "%~2"
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -f "%~1" -p "%~2"
 ) else (
-    "%SCRIPT_DIR%bin\helper.exe" -m !MODEL! -c 2048 -p "%*"
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -p "%*"
 )
-if !ERRORLEVEL! NEQ 0 if exist "%SCRIPT_DIR%data\core_lite.bin" if not "!MODEL!"=="\"%SCRIPT_DIR%data\core_lite.bin\"" (
-    echo [!] Primary model engine failed. Auto-falling back to 3B safety net...
-    if "%~1"=="" (
-        "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -i
-    ) else (
-        "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -p "%*"
+
+if %ERRORLEVEL% NEQ 0 (
+    if exist "%SCRIPT_DIR%data\core_lite.bin" (
+        if /i not "!MODEL!"=="%SCRIPT_DIR%data\core_lite.bin" (
+            echo [!] Primary model engine failed. Auto-falling back to 3B safety net...
+            if "%~1"=="" (
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -i
+            ) else (
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -p "%*"
+            )
+        )
     )
 )

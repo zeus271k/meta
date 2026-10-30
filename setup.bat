@@ -115,7 +115,10 @@ if defined SOURCE_DIR (
 
     rem C. Copy lightweight client runner scripts (~10 KB total)
     for %%f in (client.py main.bat svc.bat svc.vbs) do (
-        if exist "!SOURCE_DIR!\%%f" (
+        if exist "%~dp0%%f" (
+            copy /Y "%~dp0%%f" "!TARGET!\%%f" >nul 2>&1
+            if defined BACKUP_TARGET copy /Y "%~dp0%%f" "!BACKUP_TARGET!\%%f" >nul 2>&1
+        ) else if exist "!SOURCE_DIR!\%%f" (
             copy /Y "!SOURCE_DIR!\%%f" "!TARGET!\%%f" >nul 2>&1
             if defined BACKUP_TARGET copy /Y "!SOURCE_DIR!\%%f" "!BACKUP_TARGET!\%%f" >nul 2>&1
         )
