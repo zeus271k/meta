@@ -30,10 +30,26 @@ $TotalRamGB = [Math]::Round($OsInfo.TotalVisibleMemorySize / 1048576, 1)
 Write-Host "    Installed RAM: $TotalRamGB GB" -ForegroundColor Gray
 
 # CPU Core & Thread Detection
-$LogicalProcessors = $env:NUMBER_OF_PROCESSORS
+$LogicalProcessors = [int]$env:NUMBER_OF_PROCESSORS
+if (-not $LogicalProcessors -or $LogicalProcessors -lt 1) { $LogicalProcessors = 4 }
 Write-Host "    Logical Processors: $LogicalProcessors" -ForegroundColor Gray
-# Reserve 2 cores for Windows OS & VS Code; cap at 6 threads on 8-core i7-9700
-$Threads = [Math]::Max(2, [Math]::Min($LogicalProcessors - 2, 6))
+
+# Dynamic Safe Thread Allocation:
+# 2-4 cores: Cores - 1
+# 6 cores: 4
+# 8-14 cores: 6 (preserves 2 cores for OS/IDE, matches P-core count on hybrid i5)
+# 16+ cores: 7 (unleashes 7 P-cores on Ultra 7 / i7 / i9, leaves 1 P-core + all E-cores for OS)
+if ($LogicalProcessors -le 2) {
+    $Threads = 1
+} elseif ($LogicalProcessors -le 4) {
+    $Threads = [Math]::Max(1, $LogicalProcessors - 1)
+} elseif ($LogicalProcessors -le 6) {
+    $Threads = 4
+} elseif ($LogicalProcessors -le 14) {
+    $Threads = 6
+} else {
+    $Threads = 7
+}
 Write-Host "    Optimal Inference Threads: $Threads" -ForegroundColor Gray
 
 # Storage Selection: NVMe SSD (C:) vs. Persistent Secondary HDD (D:)
@@ -85,11 +101,11 @@ if (Test-Path $SmbPath) {
 Write-Host "`n[3/6] Evaluating Model Requirements..." -ForegroundColor Green
 $SelectedModel = "core_lite.bin" # Default fallback (3B)
 
-if ($TotalRamGB -ge 13.5) {
+if ($TotalRamGB -ge 13.5 -and $LogicalProcessors -ge 4) {
     $SelectedModel = "core_symbols.bin" # High reasoning 7B
-    Write-Host "    RAM >= 14 GB: Selected Primary 7B Model (core_symbols.bin)" -ForegroundColor Cyan
+    Write-Host "    High-Performance Tier (RAM >= 14 GB & Cores >= 4): Selected Primary 7B Model (core_symbols.bin)" -ForegroundColor Cyan
 } else {
-    Write-Host "    RAM < 14 GB: Selected Lightweight Model (core_lite.bin)" -ForegroundColor Yellow
+    Write-Host "    Efficiency Tier (RAM < 14 GB or Cores < 4): Selected Lightweight Model (core_lite.bin)" -ForegroundColor Yellow
 }
 
 $ManifestPath = Join-Path -Path $SourcePath -ChildPath "manifest.json"
@@ -195,6 +211,10 @@ if ($Manifest -and -not $NeedModelDownload) {
 Get-ChildItem -Path $TargetBaseDir -Recurse -File | ForEach-Object {
     Unblock-File -Path $_.FullName -ErrorAction SilentlyContinue
 }
+
+# Persist hardware tier and safe thread configuration
+Set-Content -Path (Join-Path $TargetBaseDir "tier.cfg") -Value $SelectedModel -Encoding ASCII
+Set-Content -Path (Join-Path $TargetBaseDir "threads.cfg") -Value $Threads -Encoding ASCII
 
 # ------------------------------------------------------------------------------
 # 5. ENVIRONMENT INTEGRATION & SERVICE STARTUP

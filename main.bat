@@ -99,23 +99,45 @@ if not exist "%SCRIPT_DIR%bin\helper.exe" (
     exit /b 1
 )
 
+:: Hardware-Aware Safe Thread Sizing for Direct Fallback
+set THREADS=
+if exist "%SCRIPT_DIR%threads.cfg" (
+    set /p THREADS=<"%SCRIPT_DIR%threads.cfg"
+    set THREADS=!THREADS: =!
+)
+if not defined THREADS (
+    set CORES=%NUMBER_OF_PROCESSORS%
+    if not defined CORES set CORES=4
+    if !CORES! LEQ 2 (
+        set THREADS=1
+    ) else if !CORES! LEQ 4 (
+        set /a THREADS=!CORES! - 1
+    ) else if !CORES! LEQ 6 (
+        set THREADS=4
+    ) else if !CORES! LEQ 14 (
+        set THREADS=6
+    ) else (
+        set THREADS=7
+    )
+)
+
 if "%~1"=="" (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -i
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -t !THREADS! -i
 ) else if exist "%~1" (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -f "%~1" -p "%~2"
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -t !THREADS! -f "%~1" -p "%~2"
 ) else (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -p "%*"
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -t !THREADS! -p "%*"
 )
 
 if %ERRORLEVEL% NEQ 0 (
     if exist "%SCRIPT_DIR%data\core_lite.bin" (
         if /i "!MODEL!" NEQ "%SCRIPT_DIR%data\core_lite.bin" (
             if "%~1"=="" (
-                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -i
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -t !THREADS! -i
             ) else if exist "%~1" (
-                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -f "%~1" -p "%~2"
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -t !THREADS! -f "%~1" -p "%~2"
             ) else (
-                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -p "%*"
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -t !THREADS! -p "%*"
             )
         )
     )

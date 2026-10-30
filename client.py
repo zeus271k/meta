@@ -21,6 +21,29 @@ SYSTEM_PROMPT = (
 os.environ["NO_PROXY"] = "127.0.0.1,localhost"
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
+def get_safe_threads():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    threads_cfg = os.path.join(script_dir, "threads.cfg")
+    if os.path.isfile(threads_cfg):
+        try:
+            with open(threads_cfg, "r", encoding="utf-8") as f:
+                val = int(f.read().strip())
+                if val >= 1:
+                    return str(val)
+        except Exception:
+            pass
+    cores = os.cpu_count() or 4
+    if cores <= 2:
+        return "1"
+    elif cores <= 4:
+        return str(max(1, cores - 1))
+    elif cores <= 6:
+        return "4"
+    elif cores <= 14:
+        return "6"
+    else:
+        return "7"
+
 def get_direct_model_path(lite_only=False):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     data_dir = os.path.join(script_dir, "data")
@@ -58,6 +81,7 @@ def query_direct(messages, stream=True, lite_only=False):
         helper_exe,
         "-m", model_path,
         "-c", "2048",
+        "-t", get_safe_threads(),
         "--log-disable",
         "-p", chat_prompt
     ]

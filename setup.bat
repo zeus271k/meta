@@ -26,18 +26,39 @@ if !IS_USB! EQU 1 (
 )
 
 :: ------------------------------------------------------------
-:: 1. HARDWARE PROBING AND RAM DETECTION
+:: 1. HARDWARE PROBING AND TOPOLOGY DETECTION
 :: ------------------------------------------------------------
-if !IS_USB! EQU 0 echo [*] Probing client memory capacity...
+if !IS_USB! EQU 0 echo [*] Probing client hardware topology...
 set RAM_GB=8
 for /f %%a in ('powershell -NoProfile -Command "[Math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1048576)" 2^>nul') do (
     set RAM_GB=%%a
 )
 
-if !IS_USB! EQU 1 (
-    echo [+] Host memory verified: !RAM_GB! GB
+set CPU_CORES=%NUMBER_OF_PROCESSORS%
+if not defined CPU_CORES set CPU_CORES=4
+
+:: Dynamic Safe Thread Allocation:
+:: 2 to 4 cores: Cores - 1 (min 1)
+:: 6 cores: 4
+:: 8 to 14 cores: 6 (preserves 2 cores for OS/IDE, matches P-core count on hybrid i5)
+:: 16+ cores: 7 (unleashes 7 P-cores on Ultra 7 / i7 / i9, leaves 1 P-core + all E-cores for OS)
+if !CPU_CORES! LEQ 2 (
+    set OPTIMAL_THREADS=1
+) else if !CPU_CORES! LEQ 4 (
+    set /a OPTIMAL_THREADS=!CPU_CORES! - 1
+) else if !CPU_CORES! LEQ 6 (
+    set OPTIMAL_THREADS=4
+) else if !CPU_CORES! LEQ 14 (
+    set OPTIMAL_THREADS=6
 ) else (
-    echo [+] Detected Total Usable RAM: !RAM_GB! GB
+    set OPTIMAL_THREADS=7
+)
+
+if !IS_USB! EQU 1 (
+    echo [+] Host verified: !RAM_GB! GB RAM, !CPU_CORES! CPU cores [!OPTIMAL_THREADS! threads]
+) else (
+    echo [+] Detected Hardware: !RAM_GB! GB RAM, !CPU_CORES! CPU cores
+    echo [+] Optimal Inference Threads: !OPTIMAL_THREADS!
 )
 
 :: ------------------------------------------------------------
@@ -131,25 +152,32 @@ if defined SOURCE_DIR (
 set MODEL_NAME=core_lite.bin
 set MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf
 
-if !RAM_GB! GEQ 14 (
+set QUALIFIES_FOR_7B=0
+if !RAM_GB! GEQ 14 if !CPU_CORES! GEQ 4 set QUALIFIES_FOR_7B=1
+
+if !QUALIFIES_FOR_7B! EQU 1 (
     set MODEL_NAME=core_symbols.bin
     set MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf
     if !IS_USB! EQU 1 (
-        echo [+] Config: profile_!RAM_GB!g
+        echo [+] Config: profile_!RAM_GB!g_!CPU_CORES!c
     ) else (
-        echo [+] Hardware Tier: !RAM_GB! GB RAM detected. Target: Primary 7B Model [!MODEL_NAME!]
+        echo [+] Hardware Tier: High-Performance Tier (!RAM_GB! GB RAM, !CPU_CORES! cores). Target: Primary 7B Model [!MODEL_NAME!]
     )
 ) else (
     if !IS_USB! EQU 1 (
-        echo [+] Config: profile_!RAM_GB!g
+        echo [+] Config: profile_!RAM_GB!g_!CPU_CORES!c
     ) else (
-        echo [!] Hardware Tier: !RAM_GB! GB RAM detected. Target: Lightweight 3B Model [!MODEL_NAME!]
+        echo [!] Hardware Tier: Efficiency Tier (!RAM_GB! GB RAM, !CPU_CORES! cores). Target: Lightweight 3B Model [!MODEL_NAME!]
     )
 )
 
 set MODEL_PATH=!TARGET!\data\!MODEL_NAME!
 > "!TARGET!\tier.cfg" echo !MODEL_NAME!
-if defined BACKUP_TARGET > "!BACKUP_TARGET!\tier.cfg" echo !MODEL_NAME!
+> "!TARGET!\threads.cfg" echo !OPTIMAL_THREADS!
+if defined BACKUP_TARGET (
+    > "!BACKUP_TARGET!\tier.cfg" echo !MODEL_NAME!
+    > "!BACKUP_TARGET!\threads.cfg" echo !OPTIMAL_THREADS!
+)
 set COPIED_FROM_LOCAL=0
 set LOCAL_FILE_TO_COPY=
 
@@ -261,9 +289,9 @@ if not exist "!MODEL_PATH!" (
 )
 
 :: In Git Clone Mode (online / zero time restriction):
-:: If 16 GB RAM detected, also ensure the 3B safety-net model is downloaded so that
+:: If high-performance hardware detected, also ensure the 3B safety-net model is downloaded so that
 :: the automatic hot-swap fallback in svc.bat is 100% operational.
-if !IS_USB! EQU 0 if !RAM_GB! GEQ 14 (
+if !IS_USB! EQU 0 if !QUALIFIES_FOR_7B! EQU 1 (
     if not exist "!TARGET!\data\core_lite.bin" (
         echo [*] Git Clone Mode: Downloading secondary safety-net model [core_lite.bin]...
         curl --version >nul 2>&1
