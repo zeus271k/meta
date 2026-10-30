@@ -41,7 +41,7 @@ goto :strip_3b_args
 :exec_3b
 echo [*] Launching lightweight engine directly...
 if not defined PROMPT_ARGS (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 --conversation
+    "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048
 ) else (
     "%SCRIPT_DIR%bin\helper.exe" -m "!LITE_MODEL!" -c 2048 -p !PROMPT_ARGS!
 )
@@ -122,7 +122,7 @@ if not exist "%SCRIPT_DIR%bin\helper.exe" (
 
 echo [*] Launching direct local engine...
 if "%~1"=="" (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 --conversation
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048
 ) else if exist "%~1" (
     "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -f "%~1" -p "%~2"
 ) else (
@@ -134,7 +134,7 @@ if %ERRORLEVEL% NEQ 0 (
         if /i "!MODEL!" NEQ "%SCRIPT_DIR%data\core_lite.bin" (
             echo [!] Primary model engine failed. Auto-falling back to 3B safety net...
             if "%~1"=="" (
-                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 --conversation
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048
             ) else if exist "%~1" (
                 "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -f "%~1" -p "%~2"
             ) else (
