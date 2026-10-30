@@ -157,11 +157,11 @@ if !RAM_GB! GEQ 14 if !CPU_CORES! GEQ 4 set QUALIFIES_FOR_7B=1
 
 if !QUALIFIES_FOR_7B! EQU 1 (
     set MODEL_NAME=core_symbols.bin
-    set MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf
+    set MODEL_URL=https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q5_k_m.gguf
     if !IS_USB! EQU 1 (
         echo [+] Config: profile_!RAM_GB!g_!CPU_CORES!c
     ) else (
-        echo [+] Hardware Tier: High-Performance Tier [!RAM_GB! GB RAM, !CPU_CORES! cores] - Target: Primary 7B Model [!MODEL_NAME!]
+        echo [+] Hardware Tier: High-Performance Tier [!RAM_GB! GB RAM, !CPU_CORES! cores] - Target: Primary 7B Model (5-bit Q5_K_M) [!MODEL_NAME!]
     )
 ) else (
     if !IS_USB! EQU 1 (
@@ -185,12 +185,12 @@ rem ============================================================
 rem 4A. OFFLINE USB TRANSFER: COPY ALL PRESENT MODELS (7B + 3B)
 rem ============================================================
 if defined SOURCE_DIR (
-    rem Detect 7B Model file on USB
+    rem Detect 7B Model file on USB (prefers 5-bit Q5_K_M, then Q4, then Q3)
     set LOCAL_7B=
     if exist "!SOURCE_DIR!\data\core_symbols.bin" (
         set LOCAL_7B=core_symbols.bin
     ) else (
-        for %%f in ("!SOURCE_DIR!\data\*7b*.gguf" "!SOURCE_DIR!\data\*7B*.gguf" "!SOURCE_DIR!\data\*q3_k_m*.gguf") do (
+        for %%f in ("!SOURCE_DIR!\data\*7b*.gguf" "!SOURCE_DIR!\data\*7B*.gguf" "!SOURCE_DIR!\data\*q5_k_m*.gguf" "!SOURCE_DIR!\data\*q4_k_m*.gguf" "!SOURCE_DIR!\data\*q3_k_m*.gguf") do (
             if not defined LOCAL_7B if exist "%%~ff" set LOCAL_7B=%%~nxf
         )
     )

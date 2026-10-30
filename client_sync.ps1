@@ -187,9 +187,9 @@ if ($NeedModelDownload) {
         $SpeedMBs = [Math]::Round($FileSizeMB / [Math]::Max(1, $TransferDuration), 1)
         Write-Host "    Transfer Complete: $FileSizeMB MB in $TransferDuration s ($SpeedMBs MB/s)" -ForegroundColor Green
     } else {
-        Write-Host "    Model not found in local source. Downloading from Hugging Face (~4.68 GB)..." -ForegroundColor Yellow
+        Write-Host "    Model not found in local source. Downloading from Hugging Face (~5.43 GB for 7B Q5_K_M)..." -ForegroundColor Yellow
         $ModelUrl = if ($SelectedModel -like "*symbols*") {
-            "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+            "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q5_k_m.gguf"
         } else {
             "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
         }
