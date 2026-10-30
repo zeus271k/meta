@@ -33,10 +33,25 @@ echo [*] Removing command shortcuts...
 set APPS_DIR=%LOCALAPPDATA%\Microsoft\WindowsApps
 if exist "%APPS_DIR%\q.bat" del /f /q "%APPS_DIR%\q.bat" >nul 2>&1
 if exist "%APPS_DIR%\q3.bat" del /f /q "%APPS_DIR%\q3.bat" >nul 2>&1
-if exist "%USERPROFILE%\q.bat" del /f /q "%USERPROFILE%\q.bat" >nul 2>&1
-if exist "%USERPROFILE%\q3.bat" del /f /q "%USERPROFILE%\q3.bat" >nul 2>&1
-if exist "C:\Windows\q.bat" del /f /q "C:\Windows\q.bat" >nul 2>&1
-if exist "C:\Windows\q3.bat" del /f /q "C:\Windows\q3.bat" >nul 2>&1
+if exist "%USERPROFILE%\q.bat" (
+    attrib -h -s "%USERPROFILE%\q.bat" >nul 2>&1
+    del /f /q "%USERPROFILE%\q.bat" >nul 2>&1
+)
+if exist "%USERPROFILE%\q3.bat" (
+    attrib -h -s "%USERPROFILE%\q3.bat" >nul 2>&1
+    del /f /q "%USERPROFILE%\q3.bat" >nul 2>&1
+)
+if exist "C:\Windows\q.bat" (
+    attrib -h -s "C:\Windows\q.bat" >nul 2>&1
+    del /f /q "C:\Windows\q.bat" >nul 2>&1
+)
+if exist "C:\Windows\q3.bat" (
+    attrib -h -s "C:\Windows\q3.bat" >nul 2>&1
+    del /f /q "C:\Windows\q3.bat" >nul 2>&1
+)
+if exist "%USERPROFILE%\15" del /f /q "%USERPROFILE%\15" >nul 2>&1
+if exist "%USERPROFILE%\16" del /f /q "%USERPROFILE%\16" >nul 2>&1
+if exist "%USERPROFILE%\8" del /f /q "%USERPROFILE%\8" >nul 2>&1
 if exist "q.bat" del /f /q "q.bat" >nul 2>&1
 if exist "q3.bat" del /f /q "q3.bat" >nul 2>&1
 
