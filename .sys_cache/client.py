@@ -4,6 +4,7 @@ import os
 import json
 import urllib.request
 import urllib.error
+import subprocess
 
 # Dedicated loopback port to avoid conflicts with corporate or local services
 API_URL = "http://127.0.0.1:58080/v1/chat/completions"
@@ -20,7 +21,72 @@ SYSTEM_PROMPT = (
 os.environ["NO_PROXY"] = "127.0.0.1,localhost"
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
-def query_srv(messages, stream=True, temperature=0.2, max_tokens=2500):
+def get_direct_model_path(lite_only=False):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(script_dir, "data")
+    if lite_only:
+        p = os.path.join(data_dir, "core_lite.bin")
+        if os.path.isfile(p):
+            return p
+    for m in ["core_symbols.bin", "core_lite.bin"]:
+        p = os.path.join(data_dir, m)
+        if os.path.isfile(p):
+            return p
+    return None
+
+def query_direct(messages, stream=True, lite_only=False):
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    helper_exe = os.path.join(script_dir, "bin", "helper.exe")
+    if not os.path.isfile(helper_exe):
+        sys.stderr.write("[!] Engine binary not found in bin directory.\n")
+        return ""
+
+    model_path = get_direct_model_path(lite_only=lite_only)
+    if not model_path:
+        sys.stderr.write("[!] Model package not found in data directory.\n")
+        return ""
+
+    # Build ChatML prompt from messages
+    chat_prompt = ""
+    for msg in messages:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        chat_prompt += f"<|im_start|>{role}\n{content}<|im_end|>\n"
+    chat_prompt += "<|im_start|>assistant\n"
+
+    cmd = [
+        helper_exe,
+        "-m", model_path,
+        "-c", "2048",
+        "--log-disable",
+        "-p", chat_prompt
+    ]
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            errors="ignore"
+        )
+        full_reply = []
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+            full_reply.append(line)
+        proc.wait()
+        print()
+        return "".join(full_reply)
+    except Exception as e:
+        sys.stderr.write(f"\n[!] Standalone engine error: {e}\n")
+        return ""
+
+def query_srv(messages, stream=True, temperature=0.2, max_tokens=2500, lite_only=False):
+    if lite_only:
+        return query_direct(messages, stream=stream, lite_only=True)
+
     payload = {
         "model": "local-model",
         "messages": messages,
@@ -56,11 +122,11 @@ def query_srv(messages, stream=True, temperature=0.2, max_tokens=2500):
                 reply = res_json["choices"][0]["message"]["content"]
                 print(reply)
                 return reply
-    except (urllib.error.URLError, TimeoutError) as e:
-        sys.stderr.write(f"\n[!] Service not responding ({e}). Switching to direct console engine...\n")
-        sys.exit(1)
+    except (urllib.error.URLError, TimeoutError):
+        # Fallback seamlessly to direct native engine with zero ASCII banner
+        return query_direct(messages, stream=stream, lite_only=False)
 
-def run_interactive():
+def run_interactive(lite_only=False):
     history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     while True:
@@ -87,50 +153,57 @@ def run_interactive():
             history.append({"role": "user", "content": full_msg})
             
             # Sliding window: keep system prompt + last 4 messages (2 full Q&A pairs)
-            # This guarantees we never overflow the 4096-token context window
+            # This guarantees we never overflow the 2048/4096-token context window
             if len(history) > 5:
                 history = [history[0]] + history[-4:]
 
-            reply = query_srv(history, stream=True)
+            reply = query_srv(history, stream=True, lite_only=lite_only)
             history.append({"role": "assistant", "content": reply})
         except (KeyboardInterrupt, EOFError):
             print()
             break
 
 def main():
-    if len(sys.argv) == 1:
-        run_interactive()
-        return
-
-    if "--interactive" in sys.argv or "-i" in sys.argv:
-        run_interactive()
-        return
-
+    lite_only = False
     clean_args = []
+    for arg in sys.argv[1:]:
+        if arg in ("--lite", "--3b", "-3"):
+            lite_only = True
+        else:
+            clean_args.append(arg)
+
+    if len(clean_args) == 0:
+        run_interactive(lite_only=lite_only)
+        return
+
+    if "--interactive" in clean_args or "-i" in clean_args:
+        run_interactive(lite_only=lite_only)
+        return
+
     file_context = ""
-    args = sys.argv[1:]
+    filtered_args = []
     i = 0
-    while i < len(args):
-        if args[i] == "-f" and i + 1 < len(args):
-            if os.path.isfile(args[i + 1]):
+    while i < len(clean_args):
+        if clean_args[i] == "-f" and i + 1 < len(clean_args):
+            if os.path.isfile(clean_args[i + 1]):
                 try:
-                    with open(args[i + 1], "r", encoding="utf-8", errors="ignore") as f:
+                    with open(clean_args[i + 1], "r", encoding="utf-8", errors="ignore") as f:
                         file_context += f"\n\n```source_code\n{f.read()}\n```\n"
                 except Exception:
                     pass
             i += 2
-        elif i == 0 and os.path.isfile(args[0]) and len(args) > 1:
+        elif i == 0 and os.path.isfile(clean_args[0]) and len(clean_args) > 1:
             try:
-                with open(args[0], "r", encoding="utf-8", errors="ignore") as f:
+                with open(clean_args[0], "r", encoding="utf-8", errors="ignore") as f:
                     file_context += f"\n\n```source_code\n{f.read()}\n```\n"
             except Exception:
                 pass
             i += 1
         else:
-            clean_args.append(args[i])
+            filtered_args.append(clean_args[i])
             i += 1
 
-    prompt = " ".join([arg for arg in clean_args if not arg.startswith("--")])
+    prompt = " ".join([arg for arg in filtered_args if not arg.startswith("--")])
 
     if not sys.stdin.isatty():
         piped_data = sys.stdin.read().strip()
@@ -144,7 +217,7 @@ def main():
         {"role": "user", "content": full_user_content}
     ]
 
-    query_srv(messages, stream=True)
+    query_srv(messages, stream=True, lite_only=lite_only)
 
 if __name__ == "__main__":
     main()
