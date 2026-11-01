@@ -44,6 +44,19 @@ def get_safe_threads():
     else:
         return "7"
 
+def get_safe_context():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    context_cfg = os.path.join(script_dir, "context.cfg")
+    if os.path.isfile(context_cfg):
+        try:
+            with open(context_cfg, "r", encoding="utf-8") as f:
+                val = int(f.read().strip())
+                if val >= 512:
+                    return str(val)
+        except Exception:
+            pass
+    return "4096"
+
 def get_direct_model_path(lite_only=False):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     data_dir = os.path.join(script_dir, "data")
@@ -80,7 +93,7 @@ def query_direct(messages, stream=True, lite_only=False):
     cmd = [
         helper_exe,
         "-m", model_path,
-        "-c", "2048",
+        "-c", get_safe_context(),
         "-t", get_safe_threads(),
         "--log-disable",
         "-p", chat_prompt
@@ -176,10 +189,12 @@ def run_interactive(lite_only=False):
             full_msg = user_input + file_context
             history.append({"role": "user", "content": full_msg})
             
-            # Sliding window: keep system prompt + last 4 messages (2 full Q&A pairs)
-            # This guarantees we never overflow the 2048/4096-token context window
-            if len(history) > 5:
-                history = [history[0]] + history[-4:]
+            # Sliding window: keep system prompt + last N messages based on context size
+            # This guarantees we never overflow the context window (4 for 2048, 8 for 4096, 14 for 8192)
+            ctx_size = int(get_safe_context())
+            keep_turns = 14 if ctx_size >= 8192 else (8 if ctx_size >= 4096 else 4)
+            if len(history) > keep_turns + 1:
+                history = [history[0]] + history[-keep_turns:]
 
             reply = query_srv(history, stream=True, lite_only=lite_only)
             history.append({"role": "assistant", "content": reply})

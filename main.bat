@@ -121,23 +121,31 @@ if not defined THREADS (
     )
 )
 
+:: Hardware-Aware Safe Context Sizing for Direct Fallback
+set CONTEXT=
+if exist "%SCRIPT_DIR%context.cfg" (
+    set /p CONTEXT=<"%SCRIPT_DIR%context.cfg"
+    set CONTEXT=!CONTEXT: =!
+)
+if not defined CONTEXT set CONTEXT=4096
+
 if "%~1"=="" (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -t !THREADS! -i
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c !CONTEXT! -t !THREADS! -i
 ) else if exist "%~1" (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -t !THREADS! -f "%~1" -p "%~2"
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c !CONTEXT! -t !THREADS! -f "%~1" -p "%~2"
 ) else (
-    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c 2048 -t !THREADS! -p "%*"
+    "%SCRIPT_DIR%bin\helper.exe" -m "!MODEL!" -c !CONTEXT! -t !THREADS! -p "%*"
 )
 
 if %ERRORLEVEL% NEQ 0 (
     if exist "%SCRIPT_DIR%data\core_lite.bin" (
         if /i "!MODEL!" NEQ "%SCRIPT_DIR%data\core_lite.bin" (
             if "%~1"=="" (
-                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -t !THREADS! -i
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c !CONTEXT! -t !THREADS! -i
             ) else if exist "%~1" (
-                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -t !THREADS! -f "%~1" -p "%~2"
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c !CONTEXT! -t !THREADS! -f "%~1" -p "%~2"
             ) else (
-                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c 2048 -t !THREADS! -p "%*"
+                "%SCRIPT_DIR%bin\helper.exe" -m "%SCRIPT_DIR%data\core_lite.bin" -c !CONTEXT! -t !THREADS! -p "%*"
             )
         )
     )

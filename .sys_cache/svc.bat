@@ -66,14 +66,37 @@ if not defined THREADS (
     )
 )
 
-:: 3. Launch server bound exclusively to localhost on dedicated port 58080 (fast 2048 context)
-"!SERVER_BIN!" -m "!MODEL_PATH!" --host 127.0.0.1 --port 58080 -c 2048 -t !THREADS! > "%~dp0worker.log" 2>&1
+:: 3. Dynamic Hardware-Aware Context Sizing
+set CONTEXT=
+if exist "%~dp0context.cfg" (
+    set /p CONTEXT=<"%~dp0context.cfg"
+    set CONTEXT=!CONTEXT: =!
+)
 
-:: 4. Automatic Hot-Swap Fallback (Safety Net)
+if not defined CONTEXT (
+    if defined RAM_GB (
+        if !RAM_GB! LEQ 7 (
+            set CONTEXT=2048
+        ) else if !CPU_CORES! LEQ 2 (
+            set CONTEXT=2048
+        ) else if !RAM_GB! GEQ 15 if !CPU_CORES! GEQ 8 (
+            set CONTEXT=8192
+        ) else (
+            set CONTEXT=4096
+        )
+    ) else (
+        set CONTEXT=4096
+    )
+)
+
+:: 4. Launch server bound exclusively to localhost on dedicated port 58080 (dynamic context)
+"!SERVER_BIN!" -m "!MODEL_PATH!" --host 127.0.0.1 --port 58080 -c !CONTEXT! -t !THREADS! > "%~dp0worker.log" 2>&1
+
+:: 5. Automatic Hot-Swap Fallback (Safety Net)
 :: If 7B engine fails, crashes, or runs out of RAM, immediately fallback to 3B core_lite.bin
 if "!MODEL_PATH!"=="data\core_symbols.bin" (
     if exist "data\core_lite.bin" (
         echo [!] Primary 7B engine terminated. Initiating hot-swap fallback to 3B safety-net... >> "%~dp0worker.log"
-        "!SERVER_BIN!" -m "data\core_lite.bin" --host 127.0.0.1 --port 58080 -c 2048 -t !THREADS! >> "%~dp0worker.log" 2>&1
+        "!SERVER_BIN!" -m "data\core_lite.bin" --host 127.0.0.1 --port 58080 -c !CONTEXT! -t !THREADS! >> "%~dp0worker.log" 2>&1
     )
 )

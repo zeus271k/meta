@@ -52,6 +52,16 @@ if ($LogicalProcessors -le 2) {
 }
 Write-Host "    Optimal Inference Threads: $Threads" -ForegroundColor Gray
 
+# Dynamic Safe Context Allocation:
+if ($TotalRamGB -le 7 -or $LogicalProcessors -le 2) {
+    $Context = 2048
+} elseif ($TotalRamGB -ge 15 -and $LogicalProcessors -ge 8) {
+    $Context = 8192
+} else {
+    $Context = 4096
+}
+Write-Host "    Optimal Context Window: $Context tokens" -ForegroundColor Gray
+
 # Storage Selection: NVMe SSD (C:) vs. Persistent Secondary HDD (D:)
 $TargetBaseDir = "$env:LOCALAPPDATA\boot"
 $DeployOnD = $false
@@ -215,6 +225,7 @@ Get-ChildItem -Path $TargetBaseDir -Recurse -File | ForEach-Object {
 # Persist hardware tier and safe thread configuration
 Set-Content -Path (Join-Path $TargetBaseDir "tier.cfg") -Value $SelectedModel -Encoding ASCII
 Set-Content -Path (Join-Path $TargetBaseDir "threads.cfg") -Value $Threads -Encoding ASCII
+Set-Content -Path (Join-Path $TargetBaseDir "context.cfg") -Value $Context -Encoding ASCII
 
 # ------------------------------------------------------------------------------
 # 5. ENVIRONMENT INTEGRATION & SERVICE STARTUP

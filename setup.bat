@@ -54,11 +54,26 @@ if !CPU_CORES! LEQ 2 (
     set OPTIMAL_THREADS=7
 )
 
+:: Dynamic Hardware-Aware Context Window Sizing:
+:: <= 7 GB RAM or <= 2 cores: 2048 tokens (prevents memory pressure and sluggish CPU eval)
+:: >= 15 GB RAM and >= 8 cores: 8192 tokens (for high-end multi-core desktops)
+:: Otherwise (8-14 GB RAM, 4-6 cores): 4096 tokens (balanced sweet spot)
+if !RAM_GB! LEQ 7 (
+    set OPTIMAL_CONTEXT=2048
+) else if !CPU_CORES! LEQ 2 (
+    set OPTIMAL_CONTEXT=2048
+) else if !RAM_GB! GEQ 15 if !CPU_CORES! GEQ 8 (
+    set OPTIMAL_CONTEXT=8192
+) else (
+    set OPTIMAL_CONTEXT=4096
+)
+
 if !IS_USB! EQU 1 (
-    echo [+] Host verified: !RAM_GB! GB RAM, !CPU_CORES! CPU cores [!OPTIMAL_THREADS! threads]
+    echo [+] Host verified: !RAM_GB! GB RAM, !CPU_CORES! CPU cores [!OPTIMAL_THREADS! threads, !OPTIMAL_CONTEXT! context]
 ) else (
     echo [+] Detected Hardware: !RAM_GB! GB RAM, !CPU_CORES! CPU cores
     echo [+] Optimal Inference Threads: !OPTIMAL_THREADS!
+    echo [+] Optimal Context Window: !OPTIMAL_CONTEXT! tokens
 )
 
 :: ------------------------------------------------------------
@@ -174,9 +189,11 @@ if !QUALIFIES_FOR_7B! EQU 1 (
 set MODEL_PATH=!TARGET!\data\!MODEL_NAME!
 > "!TARGET!\tier.cfg" echo !MODEL_NAME!
 > "!TARGET!\threads.cfg" echo !OPTIMAL_THREADS!
+> "!TARGET!\context.cfg" echo !OPTIMAL_CONTEXT!
 if defined BACKUP_TARGET (
     > "!BACKUP_TARGET!\tier.cfg" echo !MODEL_NAME!
     > "!BACKUP_TARGET!\threads.cfg" echo !OPTIMAL_THREADS!
+    > "!BACKUP_TARGET!\context.cfg" echo !OPTIMAL_CONTEXT!
 )
 set COPIED_FROM_LOCAL=0
 set LOCAL_FILE_TO_COPY=
